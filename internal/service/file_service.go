@@ -188,7 +188,7 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 }
 
 func (fs *FileService) AddMetadata(filePath string, metadata map[string]string) error {
-    metaFilePath := filePath + ".meta" // Сохраняем метаданные в отдельном файле
+    metaFilePath := filePath + ".meta" // Save metadata in a separate file
     file, err := os.Create(metaFilePath)
     if err != nil {
         return err
@@ -196,5 +196,6 @@ func (fs *FileService) AddMetadata(filePath string, metadata map[string]string) 
     defer file.Close()
 
     encoder := json.NewEncoder(file)
+    encoder.SetIndent("", "  ") // For pretty printing
     return encoder.Encode(metadata)
 }

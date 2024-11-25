@@ -105,3 +105,4 @@ func (a *AuthService) InvalidateSession(token string) {
 
 	delete(a.sessions, token)
 }
+

@@ -133,24 +133,41 @@
     <div id="uploadModal" class="modal">
         <div class="modal-content">
             <h5>Upload Files</h5>
-            <form method="post" enctype="multipart/form-data" action="/upload">
+            <form method="post" enctype="multipart/form-data" action="/upload" id="uploadForm">
                 <input type="hidden" name="currentPath" value="{{.Path}}">
                 <div class="file-field input-field">
                     <div class="btn">
                         <span>Select Files</span>
-                        <input type="file" name="uploadFiles" multiple>
+                        <input type="file" name="uploadFiles" id="uploadFiles" multiple>
                     </div>
                     <div class="file-path-wrapper">
                         <input class="file-path validate" type="text" placeholder="Select files">
                     </div>
                 </div>
-                <button type="submit" class="modal-close btn blue">Upload</button>
+                <!-- Version fields -->
+                <p>
+                    <label>
+                        <input type="checkbox" id="sameVersionCheckbox" name="sameVersion" value="true" checked>
+                        <span>Use the same version for all files</span>
+                    </label>
+                </p>
+                <div id="singleVersionField">
+                    <div class="input-field">
+                        <input type="text" name="fileVersion" id="fileVersion">
+                        <label for="fileVersion">Version</label>
+                    </div>
+                </div>
+                <div id="perFileVersionFields" style="display: none;">
+                    <!-- Per-file version input fields will be generated here -->
+                </div>
+                <button type="submit" class="btn blue">Upload</button>
             </form>
         </div>
         <div class="modal-footer">
             <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
         </div>
     </div>
+
 
     <!-- Create Folder Modal -->
     <div id="createFolderModal" class="modal">

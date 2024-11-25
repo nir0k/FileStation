@@ -43,6 +43,91 @@ document.addEventListener('DOMContentLoaded', function() {
         M.Tooltip.init(tooltippedElements);
     }
 
+    // Initialize upload modal logic
+    var uploadFilesInput = document.getElementById('uploadFiles');
+    var sameVersionCheckbox = document.getElementById('sameVersionCheckbox');
+    var singleVersionField = document.getElementById('singleVersionField');
+    var perFileVersionFields = document.getElementById('perFileVersionFields');
+
+    // Handle the "Use the same version for all files" checkbox
+    if (sameVersionCheckbox) {
+        sameVersionCheckbox.addEventListener('change', function() {
+            if (sameVersionCheckbox.checked) {
+                singleVersionField.style.display = 'block';
+                perFileVersionFields.style.display = 'none';
+            } else {
+                singleVersionField.style.display = 'none';
+                perFileVersionFields.style.display = 'block';
+                generatePerFileVersionFields();
+            }
+        });
+    }
+
+    // Generate per-file version input fields
+    function generatePerFileVersionFields() {
+        var files = uploadFilesInput.files;
+        perFileVersionFields.innerHTML = '';
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+
+            var div = document.createElement('div');
+            div.classList.add('input-field');
+
+            // Hidden input for filename
+            var hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'fileNames';
+            hiddenInput.value = file.name;
+
+            // Input for version
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'fileVersions';
+            input.required = true;
+            input.id = 'fileVersion_' + i;
+
+            var label = document.createElement('label');
+            label.htmlFor = 'fileVersion_' + i;
+            label.textContent = 'Version for ' + file.name;
+
+            div.appendChild(hiddenInput);
+            div.appendChild(input);
+            div.appendChild(label);
+
+            perFileVersionFields.appendChild(div);
+        }
+
+        if (typeof M !== 'undefined') {
+            M.updateTextFields(); // Update labels
+        }
+    }
+
+    // Handle file selection change
+    if (uploadFilesInput) {
+        uploadFilesInput.addEventListener('change', function() {
+            if (!sameVersionCheckbox.checked) {
+                generatePerFileVersionFields();
+            }
+        });
+    }
+
+    // Handle upload form submission
+    var uploadForm = document.getElementById('uploadForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function (event) {
+            var sameVersionCheckbox = document.getElementById('sameVersionCheckbox');
+            var perFileVersionFields = document.getElementById('perFileVersionFields');
+
+            // If "same version" checkbox is checked, remove `required` attributes from per-file fields
+            if (sameVersionCheckbox && sameVersionCheckbox.checked) {
+                var fileVersionInputs = perFileVersionFields.querySelectorAll('input[name="fileVersions"]');
+                fileVersionInputs.forEach(function (input) {
+                    input.removeAttribute('required');
+                });
+            }
+        });
+    }
+
     // Initialize checkboxes (only if they exist on the page)
     var selectAllCheckbox = document.getElementById('selectAll');
     var itemCheckboxes = document.querySelectorAll('.item-checkbox');
