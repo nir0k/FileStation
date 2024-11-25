@@ -147,32 +147,35 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Delete button handler with authorization check
+        // Delete button handler with modal confirmation
         if (deleteButton) {
             deleteButton.addEventListener('click', function(event) {
                 event.preventDefault();
                 if (deleteButton.classList.contains('disabled')) {
                     return;
                 }
-                fetch('/check-session', {
-                    method: 'GET',
-                    credentials: 'include'
-                }).then(response => {
-                    if (response.ok) {
-                        // If authorized, submit the delete form
-                        fileForm.action = '/delete';
-                        fileForm.method = 'post';
-                        fileForm.submit();
-                    } else {
-                        // Redirect to login if not authorized
-                        window.location.href = '/login';
-                    }
-                }).catch(error => {
-                    console.error('Error checking session:', error);
-                    window.location.href = '/login';
+
+                // Populate the delete confirmation modal with the names of the items to be deleted
+                var deleteItemsList = document.getElementById('deleteItemsList');
+                deleteItemsList.innerHTML = '';
+                var checkedItems = document.querySelectorAll('.item-checkbox:checked');
+                checkedItems.forEach(function(checkbox) {
+                    var li = document.createElement('li');
+                    li.textContent = checkbox.value;
+                    deleteItemsList.appendChild(li);
                 });
+
+                var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+                modal.open();
             });
         }
+
+        // Confirm delete button handler
+        document.getElementById('confirmDeleteButton').addEventListener('click', function() {
+            fileForm.action = '/delete';
+            fileForm.method = 'post';
+            fileForm.submit();
+        });
 
         // Update button states on page load
         updateButtons();
@@ -456,4 +459,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } // End of moveButton check
     } // End of fileForm check
+
+    var elems = document.querySelectorAll('.modal');
+    var instances = M.Modal.init(elems);
+    
+    document.getElementById('confirmDeleteButton').addEventListener('click', function() {
+        document.getElementById('fileForm').submit();
+    });
 });

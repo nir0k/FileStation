@@ -31,7 +31,7 @@
         <a href="#" class="waves-effect waves-light btn tooltipped disabled" id="moveButton" data-tooltip="Move Selected Item">
             Move
         </a>
-        <button id="deleteButton" class="btn red tooltipped disabled" data-tooltip="Delete Selected Items">
+        <button type="button" class="btn red tooltipped disabled" id="deleteButton" data-tooltip="Delete Selected Items" data-target="deleteConfirmModal" data-toggle="modal">
             Delete
         </button>
     </div>
@@ -221,6 +221,21 @@
             <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
         </div>
     </div>        
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content">
+            <h4>Confirm Deletion</h4>
+            <p>Are you sure you want to delete the following items?</p>
+            <ul id="deleteItemsList">
+                <!-- List of items to be deleted will be dynamically added here -->
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <button type="button" class="btn red" id="confirmDeleteButton">Delete</button>
+        </div>
+    </div>
 
 </div>
 {{ end }}
