@@ -15,6 +15,11 @@
     <link rel="icon" href="/static/icons/favicon-32x32.png" sizes="32x32" type="image/png">
     <link rel="icon" href="/static/icons/favicon-48x48.png" sizes="48x48" type="image/png">
     <link rel="icon" href="/static/icons/favicon.ico" type="image/x-icon">  
+    <style>
+        body {
+            display: none;
+        }
+    </style>
 </head>
 <body>
     {{ template "navbar.html" . }}
@@ -29,6 +34,11 @@
     <!-- Your own JavaScript -->
     <script src="/static/js/scripts.js"></script>
     <!-- Подключение библиотеки clipboard.js -->
-<script src="/static/js/clipboard.min.js"></script>
+    <script src="/static/js/clipboard.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.style.display = 'block';
+        });
+    </script>
 </body>
 </html>

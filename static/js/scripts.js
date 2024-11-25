@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     var body = document.body;
+    var editMode = false;
+    var originalMetadata = {};
+    var currentFilePath = {};
 
     // Function to set theme
     function setTheme(theme) {
@@ -570,9 +573,25 @@ document.addEventListener('DOMContentLoaded', function() {
         var drawer = document.getElementById('fileMetadataDrawer');
         var backdrop = document.createElement('div');
         backdrop.className = 'drawer-backdrop open';
-        backdrop.addEventListener('click', closeDrawer);
+        backdrop.style.zIndex = '999'; // Ensure backdrop is behind the drawer
+        backdrop.addEventListener('click', function() {
+            if (editMode) {
+                var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
+                modal.open();
+            } else {
+                closeDrawer();
+            }
+        });
         document.body.appendChild(backdrop);
         drawer.classList.add('open');
+        drawer.style.zIndex = '1000'; // Ensure drawer is in front of the backdrop
+
+        // Reset edit mode switch
+        var editModeSwitch = document.getElementById('editModeSwitch');
+        if (editModeSwitch.checked) {
+            editModeSwitch.checked = false;
+            toggleEditMode();
+        }
     }
 
     // Function to close drawer
@@ -583,6 +602,136 @@ document.addEventListener('DOMContentLoaded', function() {
             backdrop.remove();
         }
         drawer.classList.remove('open');
+        if (editMode) {
+            toggleEditMode();
+        }
+    }
+
+    // Function to copy text to clipboard
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            M.toast({html: 'Copied to clipboard'});
+        }).catch(function(error) {
+            console.error('Error copying to clipboard:', error);
+        });
+    }
+
+    // Function to toggle edit mode
+    function toggleEditMode() {
+        editMode = !editMode;
+        var metadataContent = document.getElementById('fileMetadataContent');
+        var metadataEditForm = document.getElementById('metadataEditForm');
+        if (editMode) {
+            metadataContent.style.display = 'none';
+            metadataEditForm.style.display = 'block';
+        } else {
+            metadataContent.style.display = 'block';
+            metadataEditForm.style.display = 'none';
+        }
+    }
+
+    // Function to check if user is logged in
+    function checkLoginStatus(callback) {
+        fetch('/check-session', {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => {
+            if (response.ok) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking session:', error);
+            callback(false);
+        });
+    }
+
+    // Event listener for edit mode switch
+    var editModeSwitch = document.getElementById('editModeSwitch');
+    if (editModeSwitch) {
+        editModeSwitch.addEventListener('change', function() {
+            if (editMode) {
+                var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
+                modal.open();
+            } else {
+                checkLoginStatus(function(isLoggedIn) {
+                    if (isLoggedIn) {
+                        toggleEditMode();
+                    } else {
+                        window.location.href = '/login';
+                    }
+                });
+            }
+        });
+    }
+
+    // Event listener for save button
+    var saveMetadataButton = document.getElementById('saveMetadataButton');
+    if (saveMetadataButton) {
+        saveMetadataButton.addEventListener('click', function () {
+            const rdsNumber = document.getElementById('rdsNumber').value;
+            const rdsCRC32 = document.getElementById('rdsCRC32').value;
+            const rdsMD5 = document.getElementById('rdsMD5').value;
+            const rdsSHA1 = document.getElementById('rdsSHA1').value;
+            const rdsSHA256 = document.getElementById('rdsSHA256').value;
+            const version = document.getElementById('version').value;
+
+            // Use the currentFilePath variable
+            const filePath = currentFilePath;
+
+            // Сравнение с оригинальными данными
+            const updatedMetadata = {};
+            if (originalMetadata['RDS Number'] !== rdsNumber) updatedMetadata['RDS Number'] = rdsNumber;
+            if (originalMetadata['RDS CRC32'] !== rdsCRC32) updatedMetadata['RDS CRC32'] = rdsCRC32;
+            if (originalMetadata['RDS MD5'] !== rdsMD5) updatedMetadata['RDS MD5'] = rdsMD5;
+            if (originalMetadata['RDS SHA1'] !== rdsSHA1) updatedMetadata['RDS SHA1'] = rdsSHA1;
+            if (originalMetadata['RDS SHA256'] !== rdsSHA256) updatedMetadata['RDS SHA256'] = rdsSHA256;
+            if (originalMetadata['Version'] !== version) updatedMetadata['Version'] = version;
+
+            if (Object.keys(updatedMetadata).length === 0) {
+                M.toast({ html: 'No changes to save' });
+                return;
+            }
+
+            updatedMetadata['FilePath'] = filePath;
+
+            fetch('/save-metadata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedMetadata),
+            })
+                .then(response => {
+                    if (response.ok) {
+                        M.toast({ html: 'Metadata saved successfully' });
+                        if (editMode) {
+                            toggleEditMode(); // Reset edit mode
+                        }
+                        closeDrawer(); // Close the drawer after saving
+                    } else {
+                        M.toast({ html: 'Error saving metadata' });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving metadata:', error);
+                    M.toast({ html: 'Error saving metadata' });
+                });
+        });
+    }
+
+    // Event listener for cancel button
+    var cancelMetadataButton = document.getElementById('cancelMetadataButton');
+    if (cancelMetadataButton) {
+        cancelMetadataButton.addEventListener('click', function() {
+            if (editMode) {
+                var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
+                modal.open();
+            } else {
+                toggleEditMode();
+            }
+        });
     }
 
     // Event listener for file links
@@ -596,6 +745,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     var metadataContent = document.getElementById('fileMetadataContent');
                     metadataContent.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    if (editMode) {
+                        toggleEditMode(); // Reset edit mode
+                    }
                     openDrawer();
                 })
                 .catch(error => {
@@ -624,24 +776,18 @@ document.addEventListener('DOMContentLoaded', function() {
         copyHashesButton.addEventListener('click', copyHashes);
     }
 
-    // Function to copy text to clipboard
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(function() {
-            M.toast({html: 'Copied to clipboard'});
-        }).catch(function(error) {
-            console.error('Error copying to clipboard:', error);
-        });
-    }
-
     // Event listener for file info icons
     var fileInfoIcons = document.querySelectorAll('.file-info-icon');
     fileInfoIcons.forEach(function(icon) {
         icon.addEventListener('click', function(event) {
             event.preventDefault();
             var filePath = this.getAttribute('data-file');
+            currentFilePath = filePath; // Set the current file path
+            
             fetch('/file-metadata?path=' + encodeURIComponent(filePath))
                 .then(response => response.json())
                 .then(data => {
+                    originalMetadata = data;
                     var metadataContent = document.getElementById('fileMetadataContent');
                     metadataContent.innerHTML = ''; // Clear previous content
 
@@ -700,6 +846,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         metadataContent.appendChild(hashDiv);
                     });
 
+                    // Add RDS fields
+                    var rdsFields = ['RDS Number', 'RDS CRC32', 'RDS MD5', 'RDS SHA1', 'RDS SHA256'];
+                    rdsFields.forEach(function(field) {
+                        var rdsDiv = document.createElement('div');
+                        rdsDiv.classList.add('metadata-field');
+                        var rdsLabel = document.createElement('label');
+                        rdsLabel.textContent = field + ':';
+                        var rdsValue = document.createElement('input');
+                        rdsValue.type = 'text';
+                        rdsValue.value = data[field] || '';
+                        rdsValue.readOnly = true;
+                        rdsValue.classList.add('metadata-input');
+                        rdsDiv.appendChild(rdsLabel);
+                        rdsDiv.appendChild(rdsValue);
+                        metadataContent.appendChild(rdsDiv);
+                    });
+
+                    // Populate edit form
+                    document.getElementById('rdsNumber').value = data['RDS Number'] || '';
+                    document.getElementById('rdsCRC32').value = data['RDS CRC32'] || '';
+                    document.getElementById('rdsMD5').value = data['RDS MD5'] || '';
+                    document.getElementById('rdsSHA1').value = data['RDS SHA1'] || '';
+                    document.getElementById('rdsSHA256').value = data['RDS SHA256'] || '';
+                    document.getElementById('version').value = data['Version'] || '';
+
                     openDrawer();
                 })
                 .catch(error => {
@@ -707,6 +878,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
     });
+
+    // Event listener for confirm close drawer button
+    var confirmCloseDrawerButton = document.getElementById('confirmCloseDrawerButton');
+    if (confirmCloseDrawerButton) {
+        confirmCloseDrawerButton.addEventListener('click', function() {
+            var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
+            modal.close();
+            closeDrawer();
+        });
+    }
+
+    // Function to get the logged-in user's name
+    function getLoggedInUsername() {
+        return fetch('/check-session', {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => data.username)
+        .catch(error => {
+            console.error('Error fetching username:', error);
+            return '';
+        });
+    }
 
     // Initialize clipboard.js for copy functionality
     if (typeof ClipboardJS !== 'undefined') {

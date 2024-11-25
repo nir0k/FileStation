@@ -62,7 +62,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
     }
 
     if info.IsDir() {
-        if !strings.HasSuffix(reqPath, "/") {
+        if (!strings.HasSuffix(reqPath, "/")) {
             http.Redirect(w, r, reqPath+"/", http.StatusMovedPermanently)
             return
         }
@@ -92,7 +92,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
             if parentDir == "." || parentDir == "" {
                 parentDir = "/"
             }
-            if !strings.HasSuffix(parentDir, "/") {
+            if (!strings.HasSuffix(parentDir, "/")) {
                 parentDir += "/"
             }
         }
@@ -513,9 +513,14 @@ func (h *FileHandler) FileMetadataHandler(w http.ResponseWriter, r *http.Request
     }
 
     fullPath := h.fileService.GetFullPath(filePath)
-    metadataPath := fullPath + ".meta"
-    metadataFile, err := os.Open(metadataPath)
-    if err != nil {
+    metaFilePath := filepath.Join(filepath.Dir(fullPath), "." + filepath.Base(fullPath) + ".meta")
+    metadataFile, err := os.Open(metaFilePath)
+    if os.IsNotExist(err) {
+        // Если файл метаданных отсутствует, возвращаем пустой объект
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]string{})
+        return
+    } else if err != nil {
         http.Error(w, "Error reading metadata", http.StatusInternalServerError)
         return
     }
@@ -530,5 +535,54 @@ func (h *FileHandler) FileMetadataHandler(w http.ResponseWriter, r *http.Request
 
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(metadata)
+}
+
+// RecalculateHashesHandler обрабатывает запросы на пересчет хеш-сумм.
+func (h *FileHandler) RecalculateHashesHandler(w http.ResponseWriter, r *http.Request) {
+    filePath := r.URL.Query().Get("path")
+    if filePath == "" {
+        http.Error(w, "File path is required", http.StatusBadRequest)
+        return
+    }
+
+    fullPath := h.fileService.GetFullPath(filePath)
+    hashes, err := h.fileService.RecalculateHashes(fullPath)
+    if err != nil {
+        http.Error(w, fmt.Sprintf("Error recalculating hashes: %v", err), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(hashes)
+}
+
+// SaveMetadataHandler обрабатывает запросы на сохранение метаданных.
+func (h *FileHandler) SaveMetadataHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    var metadata map[string]string
+    err := json.NewDecoder(r.Body).Decode(&metadata)
+    if err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    filePath, ok := metadata["FilePath"]
+    if !ok {
+        http.Error(w, "File path is required", http.StatusBadRequest)
+        return
+    }
+
+    fullPath := h.fileService.GetFullPath(filePath)
+    err = h.fileService.AddMetadata(fullPath, metadata)
+    if err != nil {
+        http.Error(w, "Error saving metadata", http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
 }
 

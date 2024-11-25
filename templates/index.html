@@ -82,6 +82,7 @@
                 </tr>
                 {{end}}
                 {{range .Files}}
+                {{if not (hasSuffix .Name ".meta")}}
                 <tr>
                     <td class="checkbox-column">
                         <label>
@@ -101,7 +102,7 @@
                         {{if .IsDir}}
                         <a href="{{$.Path}}{{.Name}}/">{{.Name}}/</a>
                         {{else}}
-                        <a href="{{$.Path}}{{.Name}}" class="file-link">{{.Name}}</a>
+                        <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}">{{.Name}}</a>
                         <i class="material-icons file-info-icon" data-file="{{$.Path}}{{.Name}}">info</i>
                         {{end}}
                     </td>
@@ -118,6 +119,7 @@
                     </td>
                 </tr>
                 {{end}}
+                {{end}}
             </tbody>
         </table>
         <button type="submit" id="downloadButton" class="btn green disabled">Download Selected Files</button>
@@ -127,12 +129,67 @@
     <div id="fileMetadataDrawer" class="drawer drawer-right" style="width: 400px;">
         <div class="drawer-header">
             <h5>File Metadata</h5>
-            <button type="button" class="btn-close" aria-label="Close" onclick="closeDrawer()"></button>
+            <div class="switch">
+                <label>
+                    View
+                    <input type="checkbox" id="editModeSwitch">
+                    <span class="lever"></span>
+                    Edit
+                </label>
+            </div>
         </div>
         <div class="drawer-body">
             <div id="fileMetadataContent">
                 <!-- Содержимое метаданных будет динамически добавлено сюда -->
             </div>
+            <div id="metadataEditForm" style="display: none;">
+                <!-- Другие метаданные -->
+                <div class="metadata-field">
+                    <label for="version">Version:</label>
+                    <input type="text" id="version" class="metadata-input">
+                </div>
+            
+                <!-- RDS Block -->
+                <div class="rds-block">
+                    <h6>RDS Information</h6>
+                    <div class="metadata-field">
+                        <label for="rdsNumber">RDS Number:</label>
+                        <input type="text" id="rdsNumber" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsCRC32">RDS CRC32:</label>
+                        <input type="text" id="rdsCRC32" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsMD5">RDS MD5:</label>
+                        <input type="text" id="rdsMD5" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsSHA1">RDS SHA1:</label>
+                        <input type="text" id="rdsSHA1" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsSHA256">RDS SHA256:</label>
+                        <input type="text" id="rdsSHA256" class="metadata-input">
+                    </div>
+                </div>
+            
+                <!-- Кнопки -->
+                <button type="button" class="btn blue" id="saveMetadataButton">Save</button>
+                <button type="button" class="btn red" id="cancelMetadataButton">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for confirming drawer close -->
+    <div id="confirmCloseDrawerModal" class="modal">
+        <div class="modal-content">
+            <h4>Unsaved Changes</h4>
+            <p>You have unsaved changes. Are you sure you want to close?</p>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <button type="button" class="btn red" id="confirmCloseDrawerButton">Close</button>
         </div>
     </div>
 
@@ -270,4 +327,6 @@
 
 </div>
 
+<!-- Подключение библиотеки clipboard.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
 {{ end }}

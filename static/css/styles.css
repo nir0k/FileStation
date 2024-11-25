@@ -428,3 +428,53 @@ th.resizable .resize-handle {
 .dark-theme .metadata-field input {
     color: #ffffff; /* Значения не должны быть черными в темной теме */
 }
+
+.switch {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+.switch label {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+    color: inherit;
+}
+
+.switch input[type="checkbox"] {
+    display: none;
+}
+
+.switch .lever {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 14px;
+    background-color: #ccc;
+    border-radius: 15px;
+    margin: 0 10px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.switch .lever::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 20px;
+    height: 20px;
+    background-color: #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: left 0.3s;
+}
+
+.switch input[type="checkbox"]:checked + .lever {
+    background-color: #42a5f5;
+}
+
+.switch input[type="checkbox"]:checked + .lever::before {
+    left: 17px;
+}

@@ -9,6 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"hash/crc32"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
 )
 
 // FileService отвечает за операции с файлами и директориями.
@@ -187,15 +191,73 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 	return modTimes, nil
 }
 
-func (fs *FileService) AddMetadata(filePath string, metadata map[string]string) error {
-    metaFilePath := filePath + ".meta" // Save metadata in a separate file
+func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]string) error {
+    metaFilePath := filepath.Join(filepath.Dir(filePath), "." + filepath.Base(filePath) + ".meta")
+
+    // Чтение существующих метаданных, если файл существует
+    existingMetadata := make(map[string]string)
+    if _, err := os.Stat(metaFilePath); err == nil {
+        file, err := os.Open(metaFilePath)
+        if err != nil {
+            return fmt.Errorf("error opening metadata file: %w", err)
+        }
+        defer file.Close()
+
+        decoder := json.NewDecoder(file)
+        if err := decoder.Decode(&existingMetadata); err != nil {
+            return fmt.Errorf("error decoding metadata file: %w", err)
+        }
+    }
+
+    // Обновление существующих метаданных новыми данными
+    for key, value := range newMetadata {
+        existingMetadata[key] = value
+    }
+
+    // Запись обновленных метаданных обратно в файл
     file, err := os.Create(metaFilePath)
     if err != nil {
-        return err
+        return fmt.Errorf("error creating metadata file: %w", err)
     }
     defer file.Close()
 
     encoder := json.NewEncoder(file)
-    encoder.SetIndent("", "  ") // For pretty printing
-    return encoder.Encode(metadata)
+    encoder.SetIndent("", " ") // Для удобства чтения
+    if err := encoder.Encode(existingMetadata); err != nil {
+        return fmt.Errorf("error encoding metadata: %w", err)
+    }
+
+    return nil
 }
+
+// RecalculateHashes пересчитывает хеш-суммы для файла.
+func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, error) {
+    file, err := os.Open(filePath)
+    if err != nil {
+        return nil, fmt.Errorf("error opening file: %w", err)
+    }
+    defer file.Close()
+
+    crc32Hash := crc32.NewIEEE()
+    md5Hash := md5.New()
+    sha1Hash := sha1.New()
+    sha256Hash := sha256.New()
+
+    // MultiWriter to compute checksums
+    writer := io.MultiWriter(crc32Hash, md5Hash, sha1Hash, sha256Hash)
+
+    // Copy data from file to writer and compute hashes
+    if _, err := io.Copy(writer, file); err != nil {
+        return nil, fmt.Errorf("error calculating hashes: %w", err)
+    }
+
+    hashes := map[string]string{
+        "CRC32":  fmt.Sprintf("%x", crc32Hash.Sum32()),
+        "MD5":    fmt.Sprintf("%x", md5Hash.Sum(nil)),
+        "SHA1":   fmt.Sprintf("%x", sha1Hash.Sum(nil)),
+        "SHA256": fmt.Sprintf("%x", sha256Hash.Sum(nil)),
+    }
+
+    return hashes, nil
+}
+

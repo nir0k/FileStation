@@ -87,6 +87,7 @@ func loadTemplates() error {
             }
             return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
         },
+        "hasSuffix": strings.HasSuffix,
     }
     var err error
 	indexTemplate, err = template.New("base.html").Funcs(funcMap).ParseFS(embeddedFS,
@@ -167,6 +168,7 @@ func setup( cfg *config.Config, mux *http.ServeMux) {
 	mux.HandleFunc("/dir-tree", helperHandler.DirTreeHandler)
 	mux.HandleFunc("/list-folders", helperHandler.ListFoldersHandler)
 	mux.HandleFunc("/file-metadata", fileHandler.FileMetadataHandler)
+	mux.HandleFunc("/recalculate-hashes", fileHandler.RecalculateHashesHandler)
 
 	// Защищённые маршруты
 	mux.Handle("/upload", authHandler.Middleware(http.HandlerFunc(fileHandler.UploadHandler)))
@@ -174,6 +176,8 @@ func setup( cfg *config.Config, mux *http.ServeMux) {
 	mux.Handle("/create-folder", authHandler.Middleware(http.HandlerFunc(fileHandler.CreateFolderHandler)))
 	mux.Handle("/rename", authHandler.Middleware(http.HandlerFunc(fileHandler.RenameHandler)))
 	mux.Handle("/move", authHandler.Middleware(http.HandlerFunc(fileHandler.MoveHandler)))
+	mux.Handle("/save-metadata", authHandler.Middleware(http.HandlerFunc(fileHandler.SaveMetadataHandler)))
+
 	
 
 }
