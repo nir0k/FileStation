@@ -23,3 +23,9 @@ go.work.sum
 
 # env file
 .env
+
+logs/
+config/config.yaml
+config/ssl/cert.pem
+config/ssl/key.pem
+README_*.md

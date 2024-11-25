@@ -1,0 +1,226 @@
+{{ define "content" }}
+<div class="container">
+    <!-- Breadcrumbs -->
+    <nav class="breadcrumb-nav">
+        <div class="nav-wrapper">
+            <div class="col s12">
+                {{ $pathParts := splitPath .Path }}
+                {{ $fullPath := "" }}
+                <a href="/" class="breadcrumb">Home</a>
+                {{ range $index, $element := $pathParts }}
+                    {{ if $element }}
+                        {{ $fullPath = joinPath $fullPath $element }}
+                        <a href="{{ $fullPath }}/" class="breadcrumb">{{ $element }}</a>
+                    {{ end }}
+                {{ end }}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Buttons -->
+    <div style="margin-top: 20px;">
+        <a href="#" class="waves-effect waves-light btn tooltipped" id="uploadFilesButton" data-tooltip="Upload Files">
+            Upload Files
+        </a>
+        <a href="#" class="waves-effect waves-light btn tooltipped" id="createFolderButton" data-tooltip="Create Folder">
+            Create Folder
+        </a>
+        <a href="#" class="waves-effect waves-light btn tooltipped disabled" id="renameButton" data-tooltip="Rename Selected Item">
+            Rename
+        </a>
+        <a href="#" class="waves-effect waves-light btn tooltipped disabled" id="moveButton" data-tooltip="Move Selected Item">
+            Move
+        </a>
+        <button id="deleteButton" class="btn red tooltipped disabled" data-tooltip="Delete Selected Items">
+            Delete
+        </button>
+    </div>
+
+    <!-- File table -->
+    <form id="fileForm" method="post">
+        <input type="hidden" name="currentPath" value="{{.Path}}">
+        <table id="fileTable" class="striped">
+            <thead>
+                <tr>
+                    <th class="checkbox-column resizable">
+                        <label>
+                            <input type="checkbox" id="selectAll">
+                            <span></span>
+                        </label>
+                        <div class="resize-handle"></div>
+                    </th>
+                    <th class="icon-column resizable">
+                        <div class="resize-handle"></div>
+                    </th>
+                    <th class="resizable">Name
+                        <div class="resize-handle"></div>
+                    </th>
+                    <th class="resizable">Size
+                        <div class="resize-handle"></div>
+                    </th>
+                    <th class="resizable">Type
+                        <div class="resize-handle"></div>
+                    </th>
+                    <th class="resizable">Last Modified
+                        <div class="resize-handle"></div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {{if ne .Path "/"}}
+                <tr>
+                    <td></td>
+                    <td class="icon-column">
+                        <i class="material-icons">folder</i>
+                    </td>
+                    <td>
+                        <a href="{{.ParentDir}}">..</a>
+                    </td>
+                    <td></td>
+                    <td>Folder</td>
+                    <td></td>
+                </tr>
+                {{end}}
+                {{range .Files}}
+                <tr>
+                    <td class="checkbox-column">
+                        <label>
+                            <input type="checkbox" name="items" value="{{$.Path}}{{.Name}}" class="item-checkbox" data-type="{{if .IsDir}}dir{{else}}file{{end}}">
+                            <span></span>
+                        </label>
+                    </td>
+                    <td class="icon-column">
+                        {{if .IsDir}}
+                            <i class="material-icons">folder</i>
+                        {{else}}
+                            {{ $icon := getFileIcon .Name }}
+                            <i class="material-icons">{{ $icon }}</i>
+                        {{end}}
+                    </td>
+                    <td>
+                        {{if .IsDir}}
+                        <a href="{{$.Path}}{{.Name}}/">{{.Name}}/</a>
+                        {{else}}
+                        <a href="{{$.Path}}{{.Name}}">{{.Name}}</a>
+                        {{end}}
+                    </td>
+                    <td>
+                        {{if not .IsDir}}
+                            {{ readableSize (getFileInfo $.FullPath .Name) }}
+                        {{end}}
+                    </td>
+                    <td>{{if .IsDir}}Folder{{else}}File{{end}}</td>
+                    <td class="mod-time">
+                        {{ with $modTime := index $.ModTimes .Name }}
+                            {{ $modTime.Format "2006-01-02 15:04:05" }}
+                        {{ end }}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        <button type="submit" id="downloadButton" class="btn green disabled">Download Selected Files</button>
+    </form>
+
+    <!-- Readme Content -->
+    {{ if .ReadmeHTML }}
+    <div class="readme-content" style="margin-top: 40px;">
+        {{ .ReadmeHTML }}
+    </div>
+    {{ end }}
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <h5>Upload Files</h5>
+            <form method="post" enctype="multipart/form-data" action="/upload">
+                <input type="hidden" name="currentPath" value="{{.Path}}">
+                <div class="file-field input-field">
+                    <div class="btn">
+                        <span>Select Files</span>
+                        <input type="file" name="uploadFiles" multiple>
+                    </div>
+                    <div class="file-path-wrapper">
+                        <input class="file-path validate" type="text" placeholder="Select files">
+                    </div>
+                </div>
+                <button type="submit" class="modal-close btn blue">Upload</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        </div>
+    </div>
+
+    <!-- Create Folder Modal -->
+    <div id="createFolderModal" class="modal">
+        <div class="modal-content">
+            <h5>Create New Folder</h5>
+            <form method="post" action="/create-folder">
+                <input type="hidden" name="currentPath" value="{{.Path}}">
+                <div class="input-field">
+                    <input type="text" name="folderName" id="folderName" required>
+                    <label for="folderName">Folder Name</label>
+                </div>
+                <button type="submit" class="modal-close btn blue">Create</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        </div>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="renameModal" class="modal">
+        <div class="modal-content">
+            <h5>Rename Item</h5>
+            <form method="post" action="/rename">
+                <input type="hidden" name="oldPath" id="renameOldPath">
+                <div class="input-field">
+                    <input type="text" name="newName" id="newName" required>
+                    <label for="newName">New Name</label>
+                </div>
+                <button type="submit" class="modal-close btn blue">Rename</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        </div>
+    </div>
+
+    <!-- Move Modal -->
+    <div id="moveModal" class="modal">
+        <div class="modal-content">
+            <h5>Move Items</h5>
+            <form method="post" action="/move">
+                <!-- Hidden field for item list -->
+                <input type="hidden" name="itemPaths" id="moveItemPaths">
+                <input type="hidden" name="destinationPath" id="selectedDestinationPath">
+                <!-- Display list of selected items -->
+                <div id="selectedItemsList">
+                    <!-- List will be dynamically added here -->
+                </div>
+                <!-- Breadcrumbs -->
+                <nav class="breadcrumb-nav">
+                    <div class="nav-wrapper">
+                        <div class="col s12" id="moveBreadcrumbs">
+                            <!-- Breadcrumbs will be dynamically added here -->
+                        </div>
+                    </div>
+                </nav>
+                <!-- Folder List -->
+                <ul class="folder-list collection" id="folderList">
+                    <!-- Folder list will be dynamically added here -->
+                </ul>
+    
+                <button type="submit" class="btn blue" id="confirmMoveButton" disabled>Move Here</button>
+            </form>
+            <p>Select the destination folder to move the selected items.</p>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        </div>
+    </div>        
+
+</div>
+{{ end }}

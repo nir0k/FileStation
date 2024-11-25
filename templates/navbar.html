@@ -1,0 +1,27 @@
+<!-- templates/navbar.html -->
+<nav>
+    <div class="nav-wrapper">
+        <a href="#" class="brand-logo center">fileStation</a>
+        <!-- Buttons on the right side of the navigation -->
+        <ul id="nav-mobile" class="right">
+            <li>
+                <a href="#" id="themeToggle" data-tooltip="Toggle Theme" class="tooltipped">
+                    <i class="material-icons">brightness_6</i>
+                </a>
+            </li>
+            {{if .IsLoggedIn}}
+            <li>
+                <a href="/logout" data-tooltip="Logout" class="tooltipped">
+                    <i class="material-icons">exit_to_app</i>
+                </a>
+            </li>
+            {{else}}
+            <li>
+                <a href="/login" data-tooltip="Login" class="tooltipped">
+                    <i class="material-icons">login</i>
+                </a>
+            </li>
+            {{end}}
+        </ul>            
+    </div>
+</nav>
