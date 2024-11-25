@@ -203,7 +203,7 @@ func (h *FileHandler) DirTreeHandler(w http.ResponseWriter, r *http.Request) {
 	fullPath := h.fileService.GetFullPath(currentPath)
 
 	// Проверка на выход за пределы базовой директории
-	if !strings.HasPrefix(fullPath, h.fileService.GetFullPath("/")) {
+	if (!strings.HasPrefix(fullPath, h.fileService.GetFullPath("/"))) {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
@@ -503,5 +503,32 @@ func (h *FileHandler) MoveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, destinationPath, http.StatusSeeOther)
+}
+
+func (h *FileHandler) FileMetadataHandler(w http.ResponseWriter, r *http.Request) {
+    filePath := r.URL.Query().Get("path")
+    if filePath == "" {
+        http.Error(w, "File path is required", http.StatusBadRequest)
+        return
+    }
+
+    fullPath := h.fileService.GetFullPath(filePath)
+    metadataPath := fullPath + ".meta"
+    metadataFile, err := os.Open(metadataPath)
+    if err != nil {
+        http.Error(w, "Error reading metadata", http.StatusInternalServerError)
+        return
+    }
+    defer metadataFile.Close()
+
+    var metadata map[string]string
+    decoder := json.NewDecoder(metadataFile)
+    if err := decoder.Decode(&metadata); err != nil {
+        http.Error(w, "Error decoding metadata", http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(metadata)
 }
 

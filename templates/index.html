@@ -101,7 +101,8 @@
                         {{if .IsDir}}
                         <a href="{{$.Path}}{{.Name}}/">{{.Name}}/</a>
                         {{else}}
-                        <a href="{{$.Path}}{{.Name}}">{{.Name}}</a>
+                        <a href="{{$.Path}}{{.Name}}" class="file-link">{{.Name}}</a>
+                        <i class="material-icons file-info-icon" data-file="{{$.Path}}{{.Name}}">info</i>
                         {{end}}
                     </td>
                     <td>
@@ -121,6 +122,19 @@
         </table>
         <button type="submit" id="downloadButton" class="btn green disabled">Download Selected Files</button>
     </form>
+
+    <!-- Drawer для метаданных файла -->
+    <div id="fileMetadataDrawer" class="drawer drawer-right" style="width: 400px;">
+        <div class="drawer-header">
+            <h5>File Metadata</h5>
+            <button type="button" class="btn-close" aria-label="Close" onclick="closeDrawer()"></button>
+        </div>
+        <div class="drawer-body">
+            <div id="fileMetadataContent">
+                <!-- Содержимое метаданных будет динамически добавлено сюда -->
+            </div>
+        </div>
+    </div>
 
     <!-- Readme Content -->
     {{ if .ReadmeHTML }}
@@ -255,4 +269,5 @@
     </div>
 
 </div>
+
 {{ end }}

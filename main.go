@@ -166,6 +166,7 @@ func setup( cfg *config.Config, mux *http.ServeMux) {
 	mux.HandleFunc("/download", fileHandler.DownloadHandler)
 	mux.HandleFunc("/dir-tree", helperHandler.DirTreeHandler)
 	mux.HandleFunc("/list-folders", helperHandler.ListFoldersHandler)
+	mux.HandleFunc("/file-metadata", fileHandler.FileMetadataHandler)
 
 	// Защищённые маршруты
 	mux.Handle("/upload", authHandler.Middleware(http.HandlerFunc(fileHandler.UploadHandler)))

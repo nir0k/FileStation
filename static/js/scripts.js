@@ -14,6 +14,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof M !== 'undefined') {
             M.updateTextFields(); // Reinitialize input labels
         }
+        applyThemeToDrawer(theme); // Apply theme to drawer
+    }
+
+    // Function to apply theme to drawer
+    function applyThemeToDrawer(theme) {
+        var drawer = document.getElementById('fileMetadataDrawer');
+        if (theme === 'dark') {
+            drawer.classList.add('dark-theme');
+            drawer.classList.remove('light-theme');
+        } else {
+            drawer.classList.add('light-theme');
+            drawer.classList.remove('dark-theme');
+        }
     }
 
     // Get saved theme from localStorage
@@ -551,4 +564,155 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('confirmDeleteButton').addEventListener('click', function() {
         document.getElementById('fileForm').submit();
     });
+
+    // Function to open drawer
+    function openDrawer() {
+        var drawer = document.getElementById('fileMetadataDrawer');
+        var backdrop = document.createElement('div');
+        backdrop.className = 'drawer-backdrop open';
+        backdrop.addEventListener('click', closeDrawer);
+        document.body.appendChild(backdrop);
+        drawer.classList.add('open');
+    }
+
+    // Function to close drawer
+    function closeDrawer() {
+        var drawer = document.getElementById('fileMetadataDrawer');
+        var backdrop = document.querySelector('.drawer-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        drawer.classList.remove('open');
+    }
+
+    // Event listener for file links
+    var fileLinks = document.querySelectorAll('.file-link');
+    fileLinks.forEach(function(link) {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            var filePath = this.getAttribute('data-file');
+            fetch('/file-metadata?path=' + encodeURIComponent(filePath))
+                .then(response => response.json())
+                .then(data => {
+                    var metadataContent = document.getElementById('fileMetadataContent');
+                    metadataContent.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    openDrawer();
+                })
+                .catch(error => {
+                    console.error('Error fetching file metadata:', error);
+                });
+        });
+    });
+
+    // Function to copy hashes to clipboard
+    function copyHashes() {
+        var hashes = document.querySelectorAll('.hash-field');
+        var hashText = '';
+        hashes.forEach(function(hash) {
+            hashText += hash.textContent + '\n';
+        });
+        navigator.clipboard.writeText(hashText).then(function() {
+            M.toast({html: 'Hashes copied to clipboard'});
+        }).catch(function(error) {
+            console.error('Error copying hashes:', error);
+        });
+    }
+
+    // Event listener for copy hashes button
+    var copyHashesButton = document.getElementById('copyHashesButton');
+    if (copyHashesButton) {
+        copyHashesButton.addEventListener('click', copyHashes);
+    }
+
+    // Function to copy text to clipboard
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            M.toast({html: 'Copied to clipboard'});
+        }).catch(function(error) {
+            console.error('Error copying to clipboard:', error);
+        });
+    }
+
+    // Event listener for file info icons
+    var fileInfoIcons = document.querySelectorAll('.file-info-icon');
+    fileInfoIcons.forEach(function(icon) {
+        icon.addEventListener('click', function(event) {
+            event.preventDefault();
+            var filePath = this.getAttribute('data-file');
+            fetch('/file-metadata?path=' + encodeURIComponent(filePath))
+                .then(response => response.json())
+                .then(data => {
+                    var metadataContent = document.getElementById('fileMetadataContent');
+                    metadataContent.innerHTML = ''; // Clear previous content
+
+                    // Add uploader
+                    var uploaderDiv = document.createElement('div');
+                    uploaderDiv.classList.add('metadata-field');
+                    var uploaderLabel = document.createElement('label');
+                    uploaderLabel.textContent = 'Uploader:';
+                    var uploaderValue = document.createElement('input');
+                    uploaderValue.type = 'text';
+                    uploaderValue.value = data['Uploader'];
+                    uploaderValue.readOnly = true;
+                    uploaderValue.classList.add('metadata-input');
+                    uploaderDiv.appendChild(uploaderLabel);
+                    uploaderDiv.appendChild(uploaderValue);
+                    metadataContent.appendChild(uploaderDiv);
+
+                    // Add version
+                    var versionDiv = document.createElement('div');
+                    versionDiv.classList.add('metadata-field');
+                    var versionLabel = document.createElement('label');
+                    versionLabel.textContent = 'Version:';
+                    var versionValue = document.createElement('input');
+                    versionValue.type = 'text';
+                    versionValue.value = data['Version'];
+                    versionValue.readOnly = true;
+                    versionValue.classList.add('metadata-input');
+                    versionDiv.appendChild(versionLabel);
+                    versionDiv.appendChild(versionValue);
+                    metadataContent.appendChild(versionDiv);
+
+                    // Add hashes
+                    var hashes = ['CRC32', 'MD5', 'SHA1', 'SHA256'];
+                    hashes.forEach(function(hash) {
+                        var hashDiv = document.createElement('div');
+                        hashDiv.classList.add('metadata-field');
+                        var hashLabel = document.createElement('label');
+                        hashLabel.textContent = hash + ':';
+                        var hashValue = document.createElement('input');
+                        hashValue.type = 'text';
+                        hashValue.value = data[hash];
+                        hashValue.readOnly = true;
+                        hashValue.classList.add('metadata-input');
+                        var copyIcon = document.createElement('i');
+                        copyIcon.className = 'material-icons copy-icon';
+                        copyIcon.textContent = 'content_copy';
+                        copyIcon.addEventListener('click', function() {
+                            copyToClipboard(data[hash]);
+                        });
+                        hashDiv.appendChild(hashLabel);
+                        var hashContainer = document.createElement('div');
+                        hashContainer.classList.add('hash-container');
+                        hashContainer.appendChild(hashValue);
+                        hashContainer.appendChild(copyIcon);
+                        hashDiv.appendChild(hashContainer);
+                        metadataContent.appendChild(hashDiv);
+                    });
+
+                    openDrawer();
+                })
+                .catch(error => {
+                    console.error('Ошибка при получении метаданных файла:', error);
+                });
+        });
+    });
+
+    // Initialize clipboard.js for copy functionality
+    if (typeof ClipboardJS !== 'undefined') {
+        new ClipboardJS('.metadata-input');
+    }
+
+    // Initialize clipboard.js for copy functionality
+    new ClipboardJS('.metadata-input');
 });
