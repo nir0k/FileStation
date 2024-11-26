@@ -1,10 +1,11 @@
 package handler
 
 import (
-	"html/template"
-	"net/http"
+	"encoding/json"
 	"fileStation/internal/service"
 	"fileStation/pkg/logger"
+	"html/template"
+	"net/http"
 	"time"
 )
 
@@ -120,13 +121,22 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 
 // CheckSessionHandler проверяет, авторизован ли пользователь.
 func (h *AuthHandler) CheckSessionHandler(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session_token")
-	if err != nil || !h.authService.IsValidSession(cookie.Value) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+    cookie, err := r.Cookie("session_token")
+    if err != nil {
+        w.WriteHeader(http.StatusUnauthorized)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
+        return
+    }
+    username, err := h.authService.GetSessionUsername(cookie.Value)
+    if err != nil {
+        w.WriteHeader(http.StatusUnauthorized)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{"username": username})
 }
+
 
 // renderTemplate - вспомогательная функция для рендеринга шаблонов.
 func (h *AuthHandler) renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {

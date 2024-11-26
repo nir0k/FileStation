@@ -31,7 +31,7 @@
         <a href="#" class="waves-effect waves-light btn tooltipped disabled" id="moveButton" data-tooltip="Move Selected Item">
             Move
         </a>
-        <button id="deleteButton" class="btn red tooltipped disabled" data-tooltip="Delete Selected Items">
+        <button type="button" class="btn red tooltipped disabled" id="deleteButton" data-tooltip="Delete Selected Items" data-target="deleteConfirmModal" data-toggle="modal">
             Delete
         </button>
     </div>
@@ -82,6 +82,7 @@
                 </tr>
                 {{end}}
                 {{range .Files}}
+                {{if not (hasSuffix .Name ".meta")}}
                 <tr>
                     <td class="checkbox-column">
                         <label>
@@ -101,7 +102,8 @@
                         {{if .IsDir}}
                         <a href="{{$.Path}}{{.Name}}/">{{.Name}}/</a>
                         {{else}}
-                        <a href="{{$.Path}}{{.Name}}">{{.Name}}</a>
+                        <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}">{{.Name}}</a>
+                        <i class="material-icons file-info-icon" data-file="{{$.Path}}{{.Name}}">info</i>
                         {{end}}
                     </td>
                     <td>
@@ -117,10 +119,79 @@
                     </td>
                 </tr>
                 {{end}}
+                {{end}}
             </tbody>
         </table>
         <button type="submit" id="downloadButton" class="btn green disabled">Download Selected Files</button>
     </form>
+
+    <!-- Drawer для метаданных файла -->
+    <div id="fileMetadataDrawer" class="drawer drawer-right" style="width: 400px;">
+        <div class="drawer-header">
+            <h5>File Metadata</h5>
+            <div class="switch">
+                <label>
+                    View
+                    <input type="checkbox" id="editModeSwitch">
+                    <span class="lever"></span>
+                    Edit
+                </label>
+            </div>
+        </div>
+        <div class="drawer-body">
+            <div id="fileMetadataContent">
+                <!-- Содержимое метаданных будет динамически добавлено сюда -->
+            </div>
+            <div id="metadataEditForm" style="display: none;">
+                <!-- Другие метаданные -->
+                <div class="metadata-field">
+                    <label for="version">Version:</label>
+                    <input type="text" id="version" class="metadata-input">
+                </div>
+            
+                <!-- RDS Block -->
+                <div class="rds-block">
+                    <h6>RDS Information</h6>
+                    <div class="metadata-field">
+                        <label for="rdsNumber">RDS Number:</label>
+                        <input type="text" id="rdsNumber" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsCRC32">RDS CRC32:</label>
+                        <input type="text" id="rdsCRC32" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsMD5">RDS MD5:</label>
+                        <input type="text" id="rdsMD5" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsSHA1">RDS SHA1:</label>
+                        <input type="text" id="rdsSHA1" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsSHA256">RDS SHA256:</label>
+                        <input type="text" id="rdsSHA256" class="metadata-input">
+                    </div>
+                </div>
+            
+                <!-- Кнопки -->
+                <button type="button" class="btn blue" id="saveMetadataButton">Save</button>
+                <button type="button" class="btn red" id="cancelMetadataButton">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for confirming drawer close -->
+    <div id="confirmCloseDrawerModal" class="modal">
+        <div class="modal-content">
+            <h4>Unsaved Changes</h4>
+            <p>You have unsaved changes. Are you sure you want to close?</p>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <button type="button" class="btn red" id="confirmCloseDrawerButton">Close</button>
+        </div>
+    </div>
 
     <!-- Readme Content -->
     {{ if .ReadmeHTML }}
@@ -133,24 +204,41 @@
     <div id="uploadModal" class="modal">
         <div class="modal-content">
             <h5>Upload Files</h5>
-            <form method="post" enctype="multipart/form-data" action="/upload">
+            <form method="post" enctype="multipart/form-data" action="/upload" id="uploadForm">
                 <input type="hidden" name="currentPath" value="{{.Path}}">
                 <div class="file-field input-field">
                     <div class="btn">
                         <span>Select Files</span>
-                        <input type="file" name="uploadFiles" multiple>
+                        <input type="file" name="uploadFiles" id="uploadFiles" multiple>
                     </div>
                     <div class="file-path-wrapper">
                         <input class="file-path validate" type="text" placeholder="Select files">
                     </div>
                 </div>
-                <button type="submit" class="modal-close btn blue">Upload</button>
+                <!-- Version fields -->
+                <p>
+                    <label>
+                        <input type="checkbox" id="sameVersionCheckbox" name="sameVersion" value="true" checked>
+                        <span>Use the same version for all files</span>
+                    </label>
+                </p>
+                <div id="singleVersionField">
+                    <div class="input-field">
+                        <input type="text" name="fileVersion" id="fileVersion">
+                        <label for="fileVersion">Version</label>
+                    </div>
+                </div>
+                <div id="perFileVersionFields" style="display: none;">
+                    <!-- Per-file version input fields will be generated here -->
+                </div>
+                <button type="submit" class="btn blue">Upload</button>
             </form>
         </div>
         <div class="modal-footer">
             <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
         </div>
     </div>
+
 
     <!-- Create Folder Modal -->
     <div id="createFolderModal" class="modal">
@@ -222,5 +310,23 @@
         </div>
     </div>        
 
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content">
+            <h4>Confirm Deletion</h4>
+            <p>Are you sure you want to delete the following items?</p>
+            <ul id="deleteItemsList">
+                <!-- List of items to be deleted will be dynamically added here -->
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <button type="button" class="btn red" id="confirmDeleteButton">Delete</button>
+        </div>
+    </div>
+
 </div>
+
+<!-- Подключение библиотеки clipboard.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
 {{ end }}
