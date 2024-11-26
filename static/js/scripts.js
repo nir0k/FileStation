@@ -605,6 +605,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editMode) {
             toggleEditMode();
         }
+        editMode = false; // Reset edit mode
+        var editModeSwitch = document.getElementById('editModeSwitch');
+        if (editModeSwitch) {
+            editModeSwitch.checked = false; // Uncheck the switch
+        }
     }
 
     // Function to copy text to clipboard
