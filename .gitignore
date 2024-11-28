@@ -29,3 +29,4 @@ config/config.yaml
 config/ssl/cert.pem
 config/ssl/key.pem
 README_*.md
+filestation

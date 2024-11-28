@@ -102,7 +102,7 @@
                         {{if .IsDir}}
                         <a href="{{$.Path}}{{.Name}}/">{{.Name}}/</a>
                         {{else}}
-                        <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}">{{.Name}}</a>
+                        <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}" download>{{.Name}}</a>
                         <i class="material-icons file-info-icon" data-file="{{$.Path}}{{.Name}}">info</i>
                         {{end}}
                     </td>
@@ -137,6 +137,9 @@
                     Edit
                 </label>
             </div>
+            <button id="refreshMetadataButton" class="btn-floating btn-small waves-effect waves-light blue">
+                <i class="material-icons">refresh</i>
+            </button>
         </div>
         <div class="drawer-body">
             <div id="fileMetadataContent">
@@ -318,6 +321,7 @@
             <ul id="deleteItemsList">
                 <!-- List of items to be deleted will be dynamically added here -->
             </ul>
+            <input type="hidden" id="deleteCurrentPath" name="currentPath" value="{{.Path}}">
         </div>
         <div class="modal-footer">
             <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>

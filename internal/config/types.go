@@ -13,9 +13,7 @@ type WebServer struct {
 	BaseDir  		string `yaml:"base_dir"`
 	SSLCert  		string `yaml:"ssl_cert_file,omitempty"`
 	SSLKey   		string `yaml:"ssl_key_file,omitempty"`
-	TemplatesDir 	string `yaml:"templates_dir"`
-	StaticDir 		string `yaml:"static_dir"`
-	Version         string `yaml:"version"` // Add this line
+	Version         string `yaml:"version"`
 }
 
 // Logging - конфигурация логгирования

@@ -174,11 +174,10 @@ document.addEventListener('DOMContentLoaded', function() {
         function updateButtons() {
             var checkedItems = document.querySelectorAll('.item-checkbox:checked');
             var anyChecked = checkedItems.length > 0;
-            var anyFileChecked = document.querySelectorAll('.item-checkbox[data-type="file"]:checked').length > 0;
 
             // Manage download button
             if (downloadButton) {
-                if (anyFileChecked) {
+                if (anyChecked) {
                     downloadButton.classList.remove('disabled');
                 } else {
                     downloadButton.classList.add('disabled');
@@ -266,6 +265,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     deleteItemsList.appendChild(li);
                 });
 
+                // Set the current path in the hidden input field
+                var deleteCurrentPath = document.getElementById('deleteCurrentPath');
+                deleteCurrentPath.value = document.querySelector('input[name="currentPath"]').value;
+
                 var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
                 modal.open();
             });
@@ -273,8 +276,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Confirm delete button handler
         document.getElementById('confirmDeleteButton').addEventListener('click', function() {
+            var deleteCurrentPath = document.getElementById('deleteCurrentPath').value;
             fileForm.action = '/delete';
             fileForm.method = 'post';
+
+            // Create a hidden input to include the current path in the form submission
+            var currentPathInput = document.createElement('input');
+            currentPathInput.type = 'hidden';
+            currentPathInput.name = 'currentPath';
+            currentPathInput.value = deleteCurrentPath;
+            fileForm.appendChild(currentPathInput);
+
             fileForm.submit();
         });
 
@@ -605,6 +617,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editMode) {
             toggleEditMode();
         }
+        editMode = false; // Reset edit mode
+        var editModeSwitch = document.getElementById('editModeSwitch');
+        if (editModeSwitch) {
+            editModeSwitch.checked = false; // Uncheck the switch
+        }
     }
 
     // Function to copy text to clipboard
@@ -734,28 +751,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Event listener for file links
-    var fileLinks = document.querySelectorAll('.file-link');
-    fileLinks.forEach(function(link) {
-        link.addEventListener('click', function(event) {
-            event.preventDefault();
-            var filePath = this.getAttribute('data-file');
-            fetch('/file-metadata?path=' + encodeURIComponent(filePath))
-                .then(response => response.json())
-                .then(data => {
-                    var metadataContent = document.getElementById('fileMetadataContent');
-                    metadataContent.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-                    if (editMode) {
-                        toggleEditMode(); // Reset edit mode
-                    }
-                    openDrawer();
-                })
-                .catch(error => {
-                    console.error('Error fetching file metadata:', error);
-                });
-        });
-    });
-
     // Function to copy hashes to clipboard
     function copyHashes() {
         var hashes = document.querySelectorAll('.hash-field');
@@ -791,7 +786,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     var metadataContent = document.getElementById('fileMetadataContent');
                     metadataContent.innerHTML = ''; // Clear previous content
 
-                    // Add uploader
+                    // Create General group
+                    var generalGroup = document.createElement('div');
+                    generalGroup.classList.add('metadata-group');
+                    var generalHeader = document.createElement('h5');
+                    generalHeader.textContent = 'General';
+                    generalGroup.appendChild(generalHeader);
+
+                    // Uploader
                     var uploaderDiv = document.createElement('div');
                     uploaderDiv.classList.add('metadata-field');
                     var uploaderLabel = document.createElement('label');
@@ -803,9 +805,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     uploaderValue.classList.add('metadata-input');
                     uploaderDiv.appendChild(uploaderLabel);
                     uploaderDiv.appendChild(uploaderValue);
-                    metadataContent.appendChild(uploaderDiv);
+                    generalGroup.appendChild(uploaderDiv);
 
-                    // Add version
+                    // Version
                     var versionDiv = document.createElement('div');
                     versionDiv.classList.add('metadata-field');
                     var versionLabel = document.createElement('label');
@@ -817,9 +819,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     versionValue.classList.add('metadata-input');
                     versionDiv.appendChild(versionLabel);
                     versionDiv.appendChild(versionValue);
-                    metadataContent.appendChild(versionDiv);
+                    generalGroup.appendChild(versionDiv);
 
-                    // Add hashes
+                    // Append General group to metadata content
+                    metadataContent.appendChild(generalGroup);
+
+                    // Create Hashes group
+                    var hashesGroup = document.createElement('div');
+                    hashesGroup.classList.add('metadata-group');
+                    var hashesHeader = document.createElement('h5');
+                    hashesHeader.textContent = 'Hashes';
+                    hashesGroup.appendChild(hashesHeader);
+
+                    // Hash fields
                     var hashes = ['CRC32', 'MD5', 'SHA1', 'SHA256'];
                     hashes.forEach(function(hash) {
                         var hashDiv = document.createElement('div');
@@ -843,25 +855,83 @@ document.addEventListener('DOMContentLoaded', function() {
                         hashContainer.appendChild(hashValue);
                         hashContainer.appendChild(copyIcon);
                         hashDiv.appendChild(hashContainer);
-                        metadataContent.appendChild(hashDiv);
+                        hashesGroup.appendChild(hashDiv);
                     });
 
-                    // Add RDS fields
-                    var rdsFields = ['RDS Number', 'RDS CRC32', 'RDS MD5', 'RDS SHA1', 'RDS SHA256'];
-                    rdsFields.forEach(function(field) {
-                        var rdsDiv = document.createElement('div');
-                        rdsDiv.classList.add('metadata-field');
-                        var rdsLabel = document.createElement('label');
-                        rdsLabel.textContent = field + ':';
-                        var rdsValue = document.createElement('input');
-                        rdsValue.type = 'text';
-                        rdsValue.value = data[field] || '';
-                        rdsValue.readOnly = true;
-                        rdsValue.classList.add('metadata-input');
-                        rdsDiv.appendChild(rdsLabel);
-                        rdsDiv.appendChild(rdsValue);
-                        metadataContent.appendChild(rdsDiv);
+                    // Append Hashes group to metadata content
+                    metadataContent.appendChild(hashesGroup);
+
+                    // Create RDS group
+                    var rdsGroup = document.createElement('div');
+                    rdsGroup.classList.add('metadata-group');
+                    var rdsHeader = document.createElement('h5');
+                    rdsHeader.textContent = 'RDS';
+                    rdsGroup.appendChild(rdsHeader);
+
+                    // RDS Number (always displayed)
+                    var rdsNumberDiv = document.createElement('div');
+                    rdsNumberDiv.classList.add('metadata-field');
+                    var rdsNumberLabel = document.createElement('label');
+                    rdsNumberLabel.textContent = 'RDS Number:';
+                    var rdsNumberValue = document.createElement('input');
+                    rdsNumberValue.type = 'text';
+                    rdsNumberValue.value = data['RDS Number'] || '';
+                    rdsNumberValue.readOnly = true;
+                    rdsNumberValue.classList.add('metadata-input');
+                    rdsNumberDiv.appendChild(rdsNumberLabel);
+                    rdsNumberDiv.appendChild(rdsNumberValue);
+                    rdsGroup.appendChild(rdsNumberDiv);
+
+                    // Other RDS fields with comparison status
+                    var rdsFields = [
+                        { field: 'RDS CRC32', compareWith: 'CRC32' },
+                        { field: 'RDS MD5', compareWith: 'MD5' },
+                        { field: 'RDS SHA1', compareWith: 'SHA1' },
+                        { field: 'RDS SHA256', compareWith: 'SHA256' }
+                    ];
+
+                    rdsFields.forEach(function(item) {
+                        var rdsValue = data[item.field] || '';
+                        if (rdsValue) {
+                            var rdsDiv = document.createElement('div');
+                            rdsDiv.classList.add('metadata-field');
+                            var rdsLabel = document.createElement('label');
+
+                            // Create status icon if compareWith is specified
+                            if (item.compareWith) {
+                                var statusIcon = document.createElement('i');
+                                var originalValue = data[item.compareWith];
+
+                                if (!originalValue || !rdsValue) {
+                                    // Either value is empty or undefined; display grey icon
+                                    statusIcon.className = 'material-icons status-icon grey-text';
+                                    statusIcon.textContent = 'help_outline';
+                                } else if (originalValue === rdsValue) {
+                                    // Values match; display green checkmark
+                                    statusIcon.className = 'material-icons status-icon green-text';
+                                    statusIcon.textContent = 'check_circle';
+                                } else {
+                                    // Values do not match; display red cross
+                                    statusIcon.className = 'material-icons status-icon red-text';
+                                    statusIcon.textContent = 'cancel';
+                                }
+                                rdsLabel.appendChild(statusIcon);
+                            }
+
+                            rdsLabel.appendChild(document.createTextNode(' ' + item.field + ':'));
+
+                            var rdsValueInput = document.createElement('input');
+                            rdsValueInput.type = 'text';
+                            rdsValueInput.value = rdsValue;
+                            rdsValueInput.readOnly = true;
+                            rdsValueInput.classList.add('metadata-input');
+                            rdsDiv.appendChild(rdsLabel);
+                            rdsDiv.appendChild(rdsValueInput);
+                            rdsGroup.appendChild(rdsDiv);
+                        }
                     });
+
+                    metadataContent.appendChild(rdsGroup);
 
                     // Populate edit form
                     document.getElementById('rdsNumber').value = data['RDS Number'] || '';
@@ -910,4 +980,197 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize clipboard.js for copy functionality
     new ClipboardJS('.metadata-input');
+
+    // Function to refresh metadata
+    function refreshMetadata(filePath) {
+        fetch('/recalculate-hashes?path=' + encodeURIComponent(filePath))
+            .then(response => response.json())
+            .then(hashes => {
+                // Update metadata fields with new hashes
+                document.getElementById('rdsCRC32').value = hashes['CRC32'];
+                document.getElementById('rdsMD5').value = hashes['MD5'];
+                document.getElementById('rdsSHA1').value = hashes['SHA1'];
+                document.getElementById('rdsSHA256').value = hashes['SHA256'];
+
+                // Fetch updated metadata from README.md
+                fetch('/file-metadata?path=' + encodeURIComponent(filePath))
+                    .then(response => response.json())
+                    .then(metadata => {
+                        document.getElementById('rdsNumber').value = metadata['RDS Number'] || '';
+                        M.toast({ html: 'Metadata refreshed successfully' });
+
+                        // Update the displayed metadata content
+                        updateMetadataContent(metadata, hashes);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching metadata:', error);
+                        M.toast({ html: 'Error refreshing metadata' });
+                    });
+            })
+            .catch(error => {
+                console.error('Error recalculating hashes:', error);
+                M.toast({ html: 'Error refreshing metadata' });
+            });
+    }
+
+    // Function to update metadata content
+    function updateMetadataContent(metadata, hashes) {
+        var metadataContent = document.getElementById('fileMetadataContent');
+        metadataContent.innerHTML = ''; // Clear previous content
+
+        // Create General group
+        var generalGroup = document.createElement('div');
+        generalGroup.classList.add('metadata-group');
+        var generalHeader = document.createElement('h5');
+        generalHeader.textContent = 'General';
+        generalGroup.appendChild(generalHeader);
+
+        // Uploader
+        var uploaderDiv = document.createElement('div');
+        uploaderDiv.classList.add('metadata-field');
+        var uploaderLabel = document.createElement('label');
+        uploaderLabel.textContent = 'Uploader:';
+        var uploaderValue = document.createElement('input');
+        uploaderValue.type = 'text';
+        uploaderValue.value = metadata['Uploader'];
+        uploaderValue.readOnly = true;
+        uploaderValue.classList.add('metadata-input');
+        uploaderDiv.appendChild(uploaderLabel);
+        uploaderDiv.appendChild(uploaderValue);
+        generalGroup.appendChild(uploaderDiv);
+
+        // Version
+        var versionDiv = document.createElement('div');
+        versionDiv.classList.add('metadata-field');
+        var versionLabel = document.createElement('label');
+        versionLabel.textContent = 'Version:';
+        var versionValue = document.createElement('input');
+        versionValue.type = 'text';
+        versionValue.value = metadata['Version'];
+        versionValue.readOnly = true;
+        versionValue.classList.add('metadata-input');
+        versionDiv.appendChild(versionLabel);
+        versionDiv.appendChild(versionValue);
+        generalGroup.appendChild(versionDiv);
+
+        // Append General group to metadata content
+        metadataContent.appendChild(generalGroup);
+
+        // Create Hashes group
+        var hashesGroup = document.createElement('div');
+        hashesGroup.classList.add('metadata-group');
+        var hashesHeader = document.createElement('h5');
+        hashesHeader.textContent = 'Hashes';
+        hashesGroup.appendChild(hashesHeader);
+
+        // Hash fields
+        var hashFields = ['CRC32', 'MD5', 'SHA1', 'SHA256'];
+        hashFields.forEach(function(hash) {
+            var hashDiv = document.createElement('div');
+            hashDiv.classList.add('metadata-field');
+            var hashLabel = document.createElement('label');
+            hashLabel.textContent = hash + ':';
+            var hashValue = document.createElement('input');
+            hashValue.type = 'text';
+            hashValue.value = hashes[hash];
+            hashValue.readOnly = true;
+            hashValue.classList.add('metadata-input');
+            var copyIcon = document.createElement('i');
+            copyIcon.className = 'material-icons copy-icon';
+            copyIcon.textContent = 'content_copy';
+            copyIcon.addEventListener('click', function() {
+                copyToClipboard(hashes[hash]);
+            });
+            hashDiv.appendChild(hashLabel);
+            var hashContainer = document.createElement('div');
+            hashContainer.classList.add('hash-container');
+            hashContainer.appendChild(hashValue);
+            hashContainer.appendChild(copyIcon);
+            hashDiv.appendChild(hashContainer);
+            hashesGroup.appendChild(hashDiv);
+        });
+
+        // Append Hashes group to metadata content
+        metadataContent.appendChild(hashesGroup);
+
+        // Create RDS group
+        var rdsGroup = document.createElement('div');
+        rdsGroup.classList.add('metadata-group');
+        var rdsHeader = document.createElement('h5');
+        rdsHeader.textContent = 'RDS';
+        rdsGroup.appendChild(rdsHeader);
+
+        // RDS Number (always displayed)
+        var rdsNumberDiv = document.createElement('div');
+        rdsNumberDiv.classList.add('metadata-field');
+        var rdsNumberLabel = document.createElement('label');
+        rdsNumberLabel.textContent = 'RDS Number:';
+        var rdsNumberValue = document.createElement('input');
+        rdsNumberValue.type = 'text';
+        rdsNumberValue.value = metadata['RDS Number'] || '';
+        rdsNumberValue.readOnly = true;
+        rdsNumberValue.classList.add('metadata-input');
+        rdsNumberDiv.appendChild(rdsNumberLabel);
+        rdsNumberDiv.appendChild(rdsNumberValue);
+        rdsGroup.appendChild(rdsNumberDiv);
+
+        // Other RDS fields with comparison status
+        var rdsFields = [
+            { field: 'RDS CRC32', compareWith: 'CRC32' },
+            { field: 'RDS MD5', compareWith: 'MD5' },
+            { field: 'RDS SHA1', compareWith: 'SHA1' },
+            { field: 'RDS SHA256', compareWith: 'SHA256' }
+        ];
+
+        rdsFields.forEach(function(item) {
+            var rdsValue = metadata[item.field] || '';
+            if (rdsValue) {
+                var rdsDiv = document.createElement('div');
+                rdsDiv.classList.add('metadata-field');
+                var rdsLabel = document.createElement('label');
+
+                // Create status icon if compareWith is specified
+                if (item.compareWith) {
+                    var statusIcon = document.createElement('i');
+                    var originalValue = hashes[item.compareWith];
+
+                    if (!originalValue || !rdsValue) {
+                        // Either value is empty or undefined; display grey icon
+                        statusIcon.className = 'material-icons status-icon grey-text';
+                        statusIcon.textContent = 'help_outline';
+                    } else if (originalValue === rdsValue) {
+                        // Values match; display green checkmark
+                        statusIcon.className = 'material-icons status-icon green-text';
+                        statusIcon.textContent = 'check_circle';
+                    } else {
+                        // Values do not match; display red cross
+                        statusIcon.className = 'material-icons status-icon red-text';
+                        statusIcon.textContent = 'cancel';
+                    }
+                    rdsLabel.appendChild(statusIcon);
+                }
+
+                rdsLabel.appendChild(document.createTextNode(' ' + item.field + ':'));
+
+                var rdsValueInput = document.createElement('input');
+                rdsValueInput.type = 'text';
+                rdsValueInput.value = rdsValue;
+                rdsValueInput.readOnly = true;
+                rdsValueInput.classList.add('metadata-input');
+                rdsDiv.appendChild(rdsLabel);
+                rdsDiv.appendChild(rdsValueInput);
+                rdsGroup.appendChild(rdsDiv);
+            }
+        });
+
+        metadataContent.appendChild(rdsGroup);
+    }
+
+    // Event listener for refresh metadata button
+    var refreshMetadataButton = document.getElementById('refreshMetadataButton');
+    if (refreshMetadataButton) {
+        refreshMetadataButton.addEventListener('click', function() {
+            refreshMetadata(currentFilePath);
+        });
+    }
 });

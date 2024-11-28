@@ -15,15 +15,10 @@
     <link rel="icon" href="/static/icons/favicon-32x32.png" sizes="32x32" type="image/png">
     <link rel="icon" href="/static/icons/favicon-48x48.png" sizes="48x48" type="image/png">
     <link rel="icon" href="/static/icons/favicon.ico" type="image/x-icon">  
-    <style>
-        body {
-            display: none;
-        }
-    </style>
 </head>
-<body>
+<body class="flex-wrapper">
     {{ template "navbar.html" . }}
-    <main>
+    <main class="container">
         {{ block "content" . }}<h1>Content not found</h1>{{ end }}
     </main>
     {{ template "footer.html" . }}

@@ -252,6 +252,15 @@ th.resizable .resize-handle {
     font-size: 14px;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
     width: 100%;
+    position: absolute;
+    bottom: 0;
+}
+
+.footer-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
 }
 
 .offcanvas {

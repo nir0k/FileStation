@@ -13,6 +13,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"bufio"
 )
 
 // FileService отвечает за операции с файлами и директориями.
@@ -92,12 +93,32 @@ func (fs *FileService) GetFileInfo(path string) (os.FileInfo, error) {
 
 // DeletePath удаляет файл или директорию (рекурсивно).
 func (fs *FileService) DeletePath(path string) error {
-	return os.RemoveAll(path)
+	err := os.RemoveAll(path)
+	if err != nil {
+		return err
+	}
+	metaFilePath := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".meta")
+	if _, err := os.Stat(metaFilePath); err == nil {
+		return os.Remove(metaFilePath)
+	}
+	return nil
 }
 
 // RenamePath переименовывает файл или директорию.
 func (fs *FileService) RenamePath(oldPath, newPath string) error {
-	return os.Rename(oldPath, newPath)
+	err := os.Rename(oldPath, newPath)
+	if err != nil {
+		return err
+	}
+	oldMetaFilePath := filepath.Join(filepath.Dir(oldPath), "."+filepath.Base(oldPath)+".meta")
+	newMetaFilePath := filepath.Join(filepath.Dir(newPath), "."+filepath.Base(newPath)+".meta")
+	if _, err := os.Stat(oldMetaFilePath); err == nil {
+		err = os.Rename(oldMetaFilePath, newMetaFilePath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MovePath перемещает файл или директорию в новое место.
@@ -106,7 +127,16 @@ func (fs *FileService) MovePath(src, dest string) error {
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
 		return fmt.Errorf("error creating destination directory: %w", err)
 	}
-	return os.Rename(src, dest)
+	err := os.Rename(src, dest)
+	if err != nil {
+		return err
+	}
+	srcMetaFilePath := filepath.Join(filepath.Dir(src), "."+filepath.Base(src)+".meta")
+	destMetaFilePath := filepath.Join(filepath.Dir(dest), "."+filepath.Base(dest)+".meta")
+	if _, err := os.Stat(srcMetaFilePath); err == nil {
+		return os.Rename(srcMetaFilePath, destMetaFilePath)
+	}
+	return nil
 }
 
 // AddFileToZip добавляет файл в ZIP-архив.
@@ -123,7 +153,25 @@ func (fs *FileService) AddFileToZip(zipWriter *zip.Writer, fullPath, relPath str
 	}
 
 	if info.IsDir() {
-		return nil // Пропускаем директории
+		// Add directory entry to zip
+		_, err := zipWriter.Create(relPath + "/")
+		if err != nil {
+			return err
+		}
+
+		// Recursively add directory contents
+		entries, err := os.ReadDir(fullPath)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			entryFullPath := filepath.Join(fullPath, entry.Name())
+			entryRelPath := filepath.Join(relPath, entry.Name())
+			if err := fs.AddFileToZip(zipWriter, entryFullPath, entryRelPath); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	header, err := zip.FileInfoHeader(info)
@@ -191,14 +239,44 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 	return modTimes, nil
 }
 
+// ExtractMetadataFromReadme извлекает метаданные из README.md файла.
+func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]string, error) {
+    readmePath := filepath.Join(dirPath, "README.md")
+    file, err := os.Open(readmePath)
+    if err != nil {
+        if os.IsNotExist(err) {
+            return nil, nil // README.md не существует
+        }
+        return nil, fmt.Errorf("error opening README.md: %w", err)
+    }
+    defer file.Close()
+
+    metadata := make(map[string]string)
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        line := scanner.Text()
+        if strings.HasPrefix(line, "RDS:") {
+            metadata["RDS Number"] = strings.TrimSpace(strings.TrimPrefix(line, "RDS:"))
+        } else if strings.HasPrefix(line, "CRC32:") {
+            metadata["RDS CRC32"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC32:"))
+        } else if strings.HasPrefix(line, "SHA256:") {
+            metadata["RDS SHA256"] = strings.TrimSpace(strings.TrimPrefix(line, "SHA256:"))
+        }
+    }
+    if err := scanner.Err(); err != nil {
+        return nil, fmt.Errorf("error reading README.md: %w", err)
+    }
+    return metadata, nil
+}
+
 func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]string) error {
     metaFilePath := filepath.Join(filepath.Dir(filePath), "." + filepath.Base(filePath) + ".meta")
 
-    // Чтение существующих метаданных, если файл существует
+    // Чтение существую��их метаданных, если файл существует
     existingMetadata := make(map[string]string)
     if _, err := os.Stat(metaFilePath); err == nil {
         file, err := os.Open(metaFilePath)
-        if err != nil {
+        if (err != nil) {
             return fmt.Errorf("error opening metadata file: %w", err)
         }
         defer file.Close()
@@ -211,6 +289,15 @@ func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]strin
 
     // Обновление существующих метаданных новыми данными
     for key, value := range newMetadata {
+        existingMetadata[key] = value
+    }
+
+    // Извлечение метаданных из README.md
+    readmeMetadata, err := fs.ExtractMetadataFromReadme(filepath.Dir(filePath))
+    if err != nil {
+        return fmt.Errorf("error extracting metadata from README.md: %w", err)
+    }
+    for key, value := range readmeMetadata {
         existingMetadata[key] = value
     }
 
@@ -252,7 +339,7 @@ func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, er
     }
 
     hashes := map[string]string{
-        "CRC32":  fmt.Sprintf("%x", crc32Hash.Sum32()),
+        "CRC32":  strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32())),
         "MD5":    fmt.Sprintf("%x", md5Hash.Sum(nil)),
         "SHA1":   fmt.Sprintf("%x", sha1Hash.Sum(nil)),
         "SHA256": fmt.Sprintf("%x", sha256Hash.Sum(nil)),
