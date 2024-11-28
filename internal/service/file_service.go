@@ -270,7 +270,7 @@ func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, er
     }
 
     hashes := map[string]string{
-        "CRC32":  fmt.Sprintf("%x", crc32Hash.Sum32()),
+        "CRC32":  strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32())),
         "MD5":    fmt.Sprintf("%x", md5Hash.Sum(nil)),
         "SHA1":   fmt.Sprintf("%x", sha1Hash.Sum(nil)),
         "SHA256": fmt.Sprintf("%x", sha256Hash.Sum(nil)),

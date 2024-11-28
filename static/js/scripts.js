@@ -265,6 +265,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     deleteItemsList.appendChild(li);
                 });
 
+                // Set the current path in the hidden input field
+                var deleteCurrentPath = document.getElementById('deleteCurrentPath');
+                deleteCurrentPath.value = document.querySelector('input[name="currentPath"]').value;
+
                 var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
                 modal.open();
             });
@@ -272,8 +276,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Confirm delete button handler
         document.getElementById('confirmDeleteButton').addEventListener('click', function() {
+            var deleteCurrentPath = document.getElementById('deleteCurrentPath').value;
             fileForm.action = '/delete';
             fileForm.method = 'post';
+
+            // Create a hidden input to include the current path in the form submission
+            var currentPathInput = document.createElement('input');
+            currentPathInput.type = 'hidden';
+            currentPathInput.name = 'currentPath';
+            currentPathInput.value = deleteCurrentPath;
+            fileForm.appendChild(currentPathInput);
+
             fileForm.submit();
         });
 
