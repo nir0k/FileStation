@@ -457,7 +457,7 @@ func (h *FileHandler) RenameHandler(w http.ResponseWriter, r *http.Request) {
 	fullOldPath := h.fileService.GetFullPath(oldPath)
 	fullNewPath := filepath.Join(filepath.Dir(fullOldPath), newName)
 
-	err := h.fileService.Rename(fullOldPath, fullNewPath)
+	err := h.fileService.RenamePath(fullOldPath, fullNewPath)
 	if err != nil {
 		http.Error(w, "Error renaming item", http.StatusInternalServerError)
 		return

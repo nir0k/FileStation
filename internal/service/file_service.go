@@ -93,12 +93,32 @@ func (fs *FileService) GetFileInfo(path string) (os.FileInfo, error) {
 
 // DeletePath удаляет файл или директорию (рекурсивно).
 func (fs *FileService) DeletePath(path string) error {
-	return os.RemoveAll(path)
+	err := os.RemoveAll(path)
+	if err != nil {
+		return err
+	}
+	metaFilePath := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".meta")
+	if _, err := os.Stat(metaFilePath); err == nil {
+		return os.Remove(metaFilePath)
+	}
+	return nil
 }
 
 // RenamePath переименовывает файл или директорию.
 func (fs *FileService) RenamePath(oldPath, newPath string) error {
-	return os.Rename(oldPath, newPath)
+	err := os.Rename(oldPath, newPath)
+	if err != nil {
+		return err
+	}
+	oldMetaFilePath := filepath.Join(filepath.Dir(oldPath), "."+filepath.Base(oldPath)+".meta")
+	newMetaFilePath := filepath.Join(filepath.Dir(newPath), "."+filepath.Base(newPath)+".meta")
+	if _, err := os.Stat(oldMetaFilePath); err == nil {
+		err = os.Rename(oldMetaFilePath, newMetaFilePath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MovePath перемещает файл или директорию в новое место.
@@ -107,7 +127,16 @@ func (fs *FileService) MovePath(src, dest string) error {
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
 		return fmt.Errorf("error creating destination directory: %w", err)
 	}
-	return os.Rename(src, dest)
+	err := os.Rename(src, dest)
+	if err != nil {
+		return err
+	}
+	srcMetaFilePath := filepath.Join(filepath.Dir(src), "."+filepath.Base(src)+".meta")
+	destMetaFilePath := filepath.Join(filepath.Dir(dest), "."+filepath.Base(dest)+".meta")
+	if _, err := os.Stat(srcMetaFilePath); err == nil {
+		return os.Rename(srcMetaFilePath, destMetaFilePath)
+	}
+	return nil
 }
 
 // AddFileToZip добавляет файл в ZIP-архив.
@@ -243,11 +272,11 @@ func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]str
 func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]string) error {
     metaFilePath := filepath.Join(filepath.Dir(filePath), "." + filepath.Base(filePath) + ".meta")
 
-    // Чтение существующих метаданных, если файл существует
+    // Чтение существую��их метаданных, если файл существует
     existingMetadata := make(map[string]string)
     if _, err := os.Stat(metaFilePath); err == nil {
         file, err := os.Open(metaFilePath)
-        if err != nil {
+        if (err != nil) {
             return fmt.Errorf("error opening metadata file: %w", err)
         }
         defer file.Close()
