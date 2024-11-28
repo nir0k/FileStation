@@ -174,11 +174,10 @@ document.addEventListener('DOMContentLoaded', function() {
         function updateButtons() {
             var checkedItems = document.querySelectorAll('.item-checkbox:checked');
             var anyChecked = checkedItems.length > 0;
-            var anyFileChecked = document.querySelectorAll('.item-checkbox[data-type="file"]:checked').length > 0;
 
             // Manage download button
             if (downloadButton) {
-                if (anyFileChecked) {
+                if (anyChecked) {
                     downloadButton.classList.remove('disabled');
                 } else {
                     downloadButton.classList.add('disabled');

@@ -141,14 +141,7 @@ func (h *FileHandler) DownloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Обработка одиночного файла
-	if len(items) == 1 {
-		fullPath := h.fileService.GetFullPath(items[0])
-		http.ServeFile(w, r, fullPath)
-		return
-	}
-
-	// Архивирование и отправка нескольких файлов
+	// Архивирование и отправка файлов и папок
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=\"files.zip\"")
 	if err := h.fileService.CreateZipArchive(w, items); err != nil {

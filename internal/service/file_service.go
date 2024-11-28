@@ -123,7 +123,25 @@ func (fs *FileService) AddFileToZip(zipWriter *zip.Writer, fullPath, relPath str
 	}
 
 	if info.IsDir() {
-		return nil // Пропускаем директории
+		// Add directory entry to zip
+		_, err := zipWriter.Create(relPath + "/")
+		if err != nil {
+			return err
+		}
+
+		// Recursively add directory contents
+		entries, err := os.ReadDir(fullPath)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			entryFullPath := filepath.Join(fullPath, entry.Name())
+			entryRelPath := filepath.Join(relPath, entry.Name())
+			if err := fs.AddFileToZip(zipWriter, entryFullPath, entryRelPath); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	header, err := zip.FileInfoHeader(info)
@@ -198,7 +216,7 @@ func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]strin
     existingMetadata := make(map[string]string)
     if _, err := os.Stat(metaFilePath); err == nil {
         file, err := os.Open(metaFilePath)
-        if err != nil {
+        if (err != nil) {
             return fmt.Errorf("error opening metadata file: %w", err)
         }
         defer file.Close()
