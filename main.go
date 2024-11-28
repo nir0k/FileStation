@@ -17,7 +17,7 @@ import (
 	"fileStation/pkg/logger"
 )
 
-var appVersion = "2.0.0"
+var appVersion = "2.2.0"
 
 //go:embed templates/* static/*
 var embeddedFS embed.FS
