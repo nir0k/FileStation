@@ -13,6 +13,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"bufio"
 )
 
 // FileService отвечает за операции с файлами и директориями.
@@ -209,6 +210,36 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 	return modTimes, nil
 }
 
+// ExtractMetadataFromReadme извлекает метаданные из README.md файла.
+func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]string, error) {
+    readmePath := filepath.Join(dirPath, "README.md")
+    file, err := os.Open(readmePath)
+    if err != nil {
+        if os.IsNotExist(err) {
+            return nil, nil // README.md не существует
+        }
+        return nil, fmt.Errorf("error opening README.md: %w", err)
+    }
+    defer file.Close()
+
+    metadata := make(map[string]string)
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        line := scanner.Text()
+        if strings.HasPrefix(line, "RDS:") {
+            metadata["RDS Number"] = strings.TrimSpace(strings.TrimPrefix(line, "RDS:"))
+        } else if strings.HasPrefix(line, "CRC32:") {
+            metadata["RDS CRC32"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC32:"))
+        } else if strings.HasPrefix(line, "SHA256:") {
+            metadata["RDS SHA256"] = strings.TrimSpace(strings.TrimPrefix(line, "SHA256:"))
+        }
+    }
+    if err := scanner.Err(); err != nil {
+        return nil, fmt.Errorf("error reading README.md: %w", err)
+    }
+    return metadata, nil
+}
+
 func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]string) error {
     metaFilePath := filepath.Join(filepath.Dir(filePath), "." + filepath.Base(filePath) + ".meta")
 
@@ -216,7 +247,7 @@ func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]strin
     existingMetadata := make(map[string]string)
     if _, err := os.Stat(metaFilePath); err == nil {
         file, err := os.Open(metaFilePath)
-        if (err != nil) {
+        if err != nil {
             return fmt.Errorf("error opening metadata file: %w", err)
         }
         defer file.Close()
@@ -229,6 +260,15 @@ func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]strin
 
     // Обновление существующих метаданных новыми данными
     for key, value := range newMetadata {
+        existingMetadata[key] = value
+    }
+
+    // Извлечение метаданных из README.md
+    readmeMetadata, err := fs.ExtractMetadataFromReadme(filepath.Dir(filePath))
+    if err != nil {
+        return fmt.Errorf("error extracting metadata from README.md: %w", err)
+    }
+    for key, value := range readmeMetadata {
         existingMetadata[key] = value
     }
 

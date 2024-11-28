@@ -61,7 +61,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if info.IsDir() {
-		if !strings.HasSuffix(reqPath, "/") {
+		if (!strings.HasSuffix(reqPath, "/")) {
 			http.Redirect(w, r, reqPath+"/", http.StatusMovedPermanently)
 			return
 		}
@@ -91,7 +91,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			if parentDir == "." || parentDir == "" {
 				parentDir = "/"
 			}
-			if !strings.HasSuffix(parentDir, "/") {
+			if (!strings.HasSuffix(parentDir, "/")) {
 				parentDir += "/"
 			}
 		}
@@ -193,7 +193,7 @@ func (h *FileHandler) DirTreeHandler(w http.ResponseWriter, r *http.Request) {
 	fullPath := h.fileService.GetFullPath(currentPath)
 
 	// Проверка на выход за пределы базовой директории
-	if !strings.HasPrefix(fullPath, h.fileService.GetFullPath("/")) {
+	if (!strings.HasPrefix(fullPath, h.fileService.GetFullPath("/"))) {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
@@ -245,7 +245,7 @@ func (h *FileHandler) ListFoldersHandler(w http.ResponseWriter, r *http.Request)
 	fullPath := h.fileService.GetFullPath(pathParam)
 
 	// Проверка на выход за пределы базовой директории
-	if !strings.HasPrefix(fullPath, h.fileService.GetFullPath("/")) {
+	if (!strings.HasPrefix(fullPath, h.fileService.GetFullPath("/"))) {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
