@@ -102,7 +102,7 @@
                         {{if .IsDir}}
                         <a href="{{$.Path}}{{.Name}}/">{{.Name}}/</a>
                         {{else}}
-                        <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}">{{.Name}}</a>
+                        <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}" download>{{.Name}}</a>
                         <i class="material-icons file-info-icon" data-file="{{$.Path}}{{.Name}}">info</i>
                         {{end}}
                     </td>

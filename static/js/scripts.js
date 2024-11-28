@@ -739,28 +739,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Event listener for file links
-    var fileLinks = document.querySelectorAll('.file-link');
-    fileLinks.forEach(function(link) {
-        link.addEventListener('click', function(event) {
-            event.preventDefault();
-            var filePath = this.getAttribute('data-file');
-            fetch('/file-metadata?path=' + encodeURIComponent(filePath))
-                .then(response => response.json())
-                .then(data => {
-                    var metadataContent = document.getElementById('fileMetadataContent');
-                    metadataContent.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-                    if (editMode) {
-                        toggleEditMode(); // Reset edit mode
-                    }
-                    openDrawer();
-                })
-                .catch(error => {
-                    console.error('Error fetching file metadata:', error);
-                });
-        });
-    });
-
     // Function to copy hashes to clipboard
     function copyHashes() {
         var hashes = document.querySelectorAll('.hash-field');
