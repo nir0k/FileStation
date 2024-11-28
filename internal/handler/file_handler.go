@@ -544,6 +544,13 @@ func (h *FileHandler) RecalculateHashesHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Update metadata with new hashes
+	err = h.fileService.AddMetadata(fullPath, hashes)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error updating metadata: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(hashes)
 }

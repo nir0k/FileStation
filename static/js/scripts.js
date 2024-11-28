@@ -980,4 +980,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize clipboard.js for copy functionality
     new ClipboardJS('.metadata-input');
+
+    // Function to refresh metadata
+    function refreshMetadata(filePath) {
+        fetch('/recalculate-hashes?path=' + encodeURIComponent(filePath))
+            .then(response => response.json())
+            .then(hashes => {
+                // Update metadata fields with new hashes
+                document.getElementById('rdsCRC32').value = hashes['CRC32'];
+                document.getElementById('rdsMD5').value = hashes['MD5'];
+                document.getElementById('rdsSHA1').value = hashes['SHA1'];
+                document.getElementById('rdsSHA256').value = hashes['SHA256'];
+
+                // Fetch updated metadata from README.md
+                fetch('/file-metadata?path=' + encodeURIComponent(filePath))
+                    .then(response => response.json())
+                    .then(metadata => {
+                        document.getElementById('rdsNumber').value = metadata['RDS Number'] || '';
+                        M.toast({ html: 'Metadata refreshed successfully' });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching metadata:', error);
+                        M.toast({ html: 'Error refreshing metadata' });
+                    });
+            })
+            .catch(error => {
+                console.error('Error recalculating hashes:', error);
+                M.toast({ html: 'Error refreshing metadata' });
+            });
+    }
+
+    // Event listener for refresh metadata button
+    var refreshMetadataButton = document.getElementById('refreshMetadataButton');
+    if (refreshMetadataButton) {
+        refreshMetadataButton.addEventListener('click', function() {
+            refreshMetadata(currentFilePath);
+        });
+    }
 });
