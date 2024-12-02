@@ -8,7 +8,7 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding: 20px;
+    padding: 0; /* Remove padding to prevent extra space */
 }
 
 main {
@@ -239,11 +239,14 @@ th.resizable .resize-handle {
 }
 
 .container {
-    flex: 1;
     padding: 20px;
+    padding-bottom: 100px; /* Add padding to the bottom */
 }
 
-/* Footer */
+.content {
+    flex: 1; /* Make content area expand to fill available space */
+}
+
 .page-footer {
     background-color: #424242;
     color: white;
@@ -252,8 +255,6 @@ th.resizable .resize-handle {
     font-size: 14px;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
     width: 100%;
-    position: absolute;
-    bottom: 0;
 }
 
 .footer-wrapper {
@@ -326,7 +327,7 @@ th.resizable .resize-handle {
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 400px; /* Увеличенная ширина */
+    width: 400px; /* Увеличенная ши��ина */
     max-width: 100%; /* Добавлено для автоматической подстройки размера */
     background-color: white;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
