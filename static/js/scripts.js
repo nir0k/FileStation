@@ -141,6 +141,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     input.removeAttribute('required');
                 });
             }
+
+            // Add file paths to the form data
+            var formData = new FormData(uploadForm);
+            var files = uploadFilesInput.files;
+            for (var i = 0; i < files.length; i++) {
+                formData.append('filePaths', files[i].webkitRelativePath || files[i].name);
+            }
+
+            // Submit the form with file paths
+            fetch(uploadForm.action, {
+                method: 'POST',
+                body: formData,
+            }).then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    response.text().then(text => {
+                        M.toast({ html: 'Error uploading files: ' + text });
+                    });
+                }
+            }).catch(error => {
+                console.error('Error uploading files:', error);
+                M.toast({ html: 'Error uploading files' });
+            });
+
+            event.preventDefault(); // Prevent the default form submission
         });
     }
 

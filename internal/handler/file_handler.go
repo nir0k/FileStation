@@ -383,6 +383,15 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error saving metadata", http.StatusInternalServerError)
 			return
 		}
+
+		// Check if the file is an HTML file and extract metadata
+		if strings.HasSuffix(fileHeader.Filename, ".html") {
+			err = h.fileService.ExtractMetadataFromHTML(dstPath)
+			if err != nil {
+				http.Error(w, "Error extracting metadata from HTML file", http.StatusInternalServerError)
+				return
+			}
+		}
 	}
 
 	http.Redirect(w, r, reqPath, http.StatusSeeOther)
