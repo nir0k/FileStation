@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/json"
@@ -9,6 +8,7 @@ import (
 	"fileStation/pkg/logger"
 	"fmt"
 	"hash/crc32"
+	"hash/crc64"
 	"html/template"
 	"io"
 	"net/http"
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/yuin/goldmark"
+	"golang.org/x/crypto/blake2s"
 )
 
 // FileHandler отвечает за обработку запросов, связанных с файлами.
@@ -337,12 +338,17 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Prepare hash writers
 		crc32Hash := crc32.NewIEEE()
-		md5Hash := md5.New()
+		crc64Hash := crc64.New(crc64.MakeTable(crc64.ECMA))
 		sha1Hash := sha1.New()
 		sha256Hash := sha256.New()
+		blake2spHash, err := blake2s.New256(nil)
+		if err != nil {
+			http.Error(w, "Error creating BLAKE2sp hash", http.StatusInternalServerError)
+			return
+		}
 
 		// MultiWriter to write to dstFile and compute checksums
-		writer := io.MultiWriter(dstFile, crc32Hash, md5Hash, sha1Hash, sha256Hash)
+		writer := io.MultiWriter(dstFile, crc32Hash, crc64Hash, sha1Hash, sha256Hash, blake2spHash)
 
 		// Copy data from uploaded file to dstFile and compute hashes
 		_, err = io.Copy(writer, file)
@@ -355,9 +361,10 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Get the checksums
 		crc32Checksum := strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32()))
-		md5Checksum := fmt.Sprintf("%x", md5Hash.Sum(nil))
+		crc64Checksum := fmt.Sprintf("%x", crc64Hash.Sum(nil))
 		sha1Checksum := fmt.Sprintf("%x", sha1Hash.Sum(nil))
 		sha256Checksum := fmt.Sprintf("%x", sha256Hash.Sum(nil))
+		blake2spChecksum := fmt.Sprintf("%x", blake2spHash.Sum(nil))
 
 		// Determine version
 		var versionForFile string
@@ -372,9 +379,10 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			"Version":  versionForFile,
 			"Uploader": username,
 			"CRC32":    crc32Checksum,
-			"MD5":      md5Checksum,
+			 "CRC64":    crc64Checksum,
 			"SHA1":     sha1Checksum,
 			"SHA256":   sha256Checksum,
+			"BLAKE2sp": blake2spChecksum,
 		}
 
 		// Save metadata
@@ -517,7 +525,7 @@ func (h *FileHandler) FileMetadataHandler(w http.ResponseWriter, r *http.Request
 	metaFilePath := filepath.Join(filepath.Dir(fullPath), "."+filepath.Base(fullPath)+".meta")
 	metadataFile, err := os.Open(metaFilePath)
 	if os.IsNotExist(err) {
-		// Если файл метаданных отсутствует, возвращаем пустой объект
+		// Если файл метаданных от��утствует, возвращаем пустой объект
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{})
 		return

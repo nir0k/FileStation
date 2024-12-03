@@ -4,6 +4,7 @@ go 1.23.2
 
 require (
 	github.com/fatih/color v1.18.0
+	golang.org/x/crypto v0.29.0
 	golang.org/x/net v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
 )

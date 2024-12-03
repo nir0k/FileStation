@@ -3,13 +3,14 @@ package service
 import (
 	"archive/zip"
 	"bufio"
-	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/crypto/blake2s"
 	"golang.org/x/net/html"
 	"hash/crc32"
+	"hash/crc64"
 	"io"
 	"os"
 	"path/filepath"
@@ -262,6 +263,10 @@ func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]str
 			metadata["RDS CRC32"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC32:"))
 		} else if strings.HasPrefix(line, "SHA256:") {
 			metadata["RDS SHA256"] = strings.TrimSpace(strings.TrimPrefix(line, "SHA256:"))
+		} else if strings.HasPrefix(line, "CRC64:") {
+			metadata["RDS CRC64"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC64:"))
+		} else if strings.HasPrefix(line, "BLAKE2sp:") {
+			metadata["RDS BLAKE2sp"] = strings.TrimSpace(strings.TrimPrefix(line, "BLAKE2sp:"))
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -327,23 +332,26 @@ func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, er
 	defer file.Close()
 
 	crc32Hash := crc32.NewIEEE()
-	md5Hash := md5.New()
+	crc64Hash := crc64.New(crc64.MakeTable(crc64.ECMA))
 	sha1Hash := sha1.New()
 	sha256Hash := sha256.New()
+	blake2spHash, err := blake2s.New256(nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating BLAKE2sp hash: %w", err)
+	}
 
-	// MultiWriter to compute checksums
-	writer := io.MultiWriter(crc32Hash, md5Hash, sha1Hash, sha256Hash)
+	writer := io.MultiWriter(crc32Hash, crc64Hash, sha1Hash, sha256Hash, blake2spHash)
 
-	// Copy data from file to writer and compute hashes
 	if _, err := io.Copy(writer, file); err != nil {
 		return nil, fmt.Errorf("error calculating hashes: %w", err)
 	}
 
 	hashes := map[string]string{
-		"CRC32":  strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32())),
-		"MD5":    fmt.Sprintf("%x", md5Hash.Sum(nil)),
-		"SHA1":   fmt.Sprintf("%x", sha1Hash.Sum(nil)),
-		"SHA256": fmt.Sprintf("%x", sha256Hash.Sum(nil)),
+		"CRC32":    strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32())),
+		"CRC64":    strings.ToUpper(fmt.Sprintf("%x", crc64Hash.Sum(nil))),
+		"SHA1":     fmt.Sprintf("%x", sha1Hash.Sum(nil)),
+		"SHA256":   fmt.Sprintf("%x", sha256Hash.Sum(nil)),
+		"BLAKE2sp": fmt.Sprintf("%x", blake2spHash.Sum(nil)),
 	}
 
 	return hashes, nil
