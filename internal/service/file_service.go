@@ -241,36 +241,44 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 	return modTimes, nil
 }
 
-// ExtractMetadataFromReadme извлекает метаданные из README.md файла.
 func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]string, error) {
 	readmePath := filepath.Join(dirPath, "README.md")
 	file, err := os.Open(readmePath)
 	if err != nil {
-		if (os.IsNotExist(err)) {
+		if os.IsNotExist(err) {
 			return nil, nil // README.md не существует
 		}
-		return nil, fmt.Errorf("error opening README.md: %w", err)
+		return nil, fmt.Errorf("ошибка при открытии README.md: %w", err)
 	}
 	defer file.Close()
 
 	metadata := make(map[string]string)
 	scanner := bufio.NewScanner(file)
+	var inRDSSection bool
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "RDS:") {
-			metadata["RDS Number"] = strings.TrimSpace(strings.TrimPrefix(line, "RDS:"))
-		} else if strings.HasPrefix(line, "CRC32:") {
-			metadata["RDS CRC32"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC32:"))
-		} else if strings.HasPrefix(line, "SHA256:") {
-			metadata["RDS SHA256"] = strings.TrimSpace(strings.TrimPrefix(line, "SHA256:"))
-		} else if strings.HasPrefix(line, "CRC64:") {
-			metadata["RDS CRC64"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC64:"))
-		} else if strings.HasPrefix(line, "BLAKE2sp:") {
-			metadata["RDS BLAKE2sp"] = strings.TrimSpace(strings.TrimPrefix(line, "BLAKE2sp:"))
+		if strings.TrimSpace(line) == "## RDS" {
+			inRDSSection = true
+			continue
+		}
+		if inRDSSection {
+			if strings.HasPrefix(line, "## ") && line != "## RDS" {
+				// Начался новый раздел, выходим из RDS секции
+				break
+			}
+			if strings.HasPrefix(line, "- **") && strings.Contains(line, "**: `") && strings.HasSuffix(line, "`") {
+				lineContent := strings.TrimPrefix(line, "- **")
+				parts := strings.SplitN(lineContent, "**: `", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					value := strings.TrimSuffix(parts[1], "`")
+						metadata["RDS "+key] = strings.TrimSpace(value)
+				}
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading README.md: %w", err)
+		return nil, fmt.Errorf("ошибка при чтении README.md: %w", err)
 	}
 	return metadata, nil
 }
@@ -283,41 +291,44 @@ func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]strin
 	if _, err := os.Stat(metaFilePath); err == nil {
 		file, err := os.Open(metaFilePath)
 		if err != nil {
-			return fmt.Errorf("error opening metadata file: %w", err)
+			return fmt.Errorf("ошибка при открытии файла метаданных: %w", err)
 		}
 		defer file.Close()
 
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&existingMetadata); err != nil {
-			return fmt.Errorf("error decoding metadata file: %w", err)
+			return fmt.Errorf("ошибка при декодировании файла метаданных: %w", err)
 		}
-	}
-
-	// Обновление существующих метаданных новыми данными
-	for key, value := range newMetadata {
-		existingMetadata[key] = value
 	}
 
 	// Извлечение метаданных из README.md
 	readmeMetadata, err := fs.ExtractMetadataFromReadme(filepath.Dir(filePath))
 	if err != nil {
-		return fmt.Errorf("error extracting metadata from README.md: %w", err)
+		return fmt.Errorf("ошибка при извлечении метаданных из README.md: %w", err)
+	}
+
+	// Объединение метаданных
+	for key, value := range newMetadata {
+		existingMetadata[key] = value
 	}
 	for key, value := range readmeMetadata {
 		existingMetadata[key] = value
 	}
 
+	// Удаление ключа "File name" из метаданных
+	delete(existingMetadata, "RDS File name")
+
 	// Запись обновленных метаданных обратно в файл
 	file, err := os.Create(metaFilePath)
 	if err != nil {
-		return fmt.Errorf("error creating metadata file: %w", err)
+		return fmt.Errorf("ошибка при создании файла метаданных: %w", err)
 	}
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", " ") // Для удобства чтения
 	if err := encoder.Encode(existingMetadata); err != nil {
-		return fmt.Errorf("error encoding metadata: %w", err)
+		return fmt.Errorf("ошибка при кодировании метаданных: %w", err)
 	}
 
 	return nil
@@ -357,45 +368,42 @@ func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, er
 	return hashes, nil
 }
 
-// ExtractMetadataFromHTML извлекает метаданные из HTML файла и обновляет README.md.
 func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 	fmt.Printf("Opening HTML file: %s\n", htmlFilePath)
 	file, err := os.Open(htmlFilePath)
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("error opening HTML file: %w", err)
 	}
 	defer file.Close()
 
 	doc, err := html.Parse(file)
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("error parsing HTML file: %w", err)
 	}
 
 	metadata := make(map[string]string)
 	var f func(*html.Node)
 	f = func(n *html.Node) {
-		if (n.Type == html.ElementNode && n.Data == "p") {
+		if n.Type == html.ElementNode && n.Data == "p" {
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				if (c.Type == html.TextNode) {
+				if c.Type == html.TextNode {
 					text := strings.TrimSpace(c.Data)
-					if (strings.HasPrefix(text, "Дата проверки:")) {
-						metadata["Дата проверки"] = strings.TrimPrefix(text, "Дата проверки:")
-					} else if (strings.HasPrefix(text, "Основание:")) {
-						metadata["RDS"] = strings.TrimPrefix(text, "Основание:")
-					} else if (strings.HasPrefix(text, "Ссылка на RDS:")) {
-						metadata["Ссылка на RDS"] = strings.TrimPrefix(text, "Ссылка на RDS:")
-					} else if (strings.HasPrefix(text, "Имя:")) {
-						metadata["File name"] = strings.TrimPrefix(text, "Имя:")
-					} else if (strings.HasPrefix(text, "CRC32:")) {
-						metadata["CRC32"] = strings.TrimPrefix(text, "CRC32:")
-					} else if (strings.HasPrefix(text, "CRC64:")) {
-						metadata["CRC64"] = strings.TrimPrefix(text, "CRC64:")
-					} else if (strings.HasPrefix(text, "SHA256:")) {
-						metadata["SHA256"] = strings.TrimPrefix(text, "SHA256:")
-					} else if (strings.HasPrefix(text, "SHA1:")) {
-						metadata["SHA1"] = strings.TrimPrefix(text, "SHA1:")
-					} else if (strings.HasPrefix(text, "BLAKE2sp:")) {
-						metadata["BLAKE2sp"] = strings.TrimPrefix(text, "BLAKE2sp:")
+					if strings.HasPrefix(text, "Дата проверки:") {
+						metadata["Дата проверки"] = strings.TrimSpace(strings.TrimPrefix(text, "Дата проверки:"))
+					} else if strings.HasPrefix(text, "Основание:") {
+						metadata["RDS"] = strings.TrimSpace(strings.TrimPrefix(text, "Основание:"))
+					} else if strings.HasPrefix(text, "Ссылка на RDS:") {
+						metadata["Ссылка на RDS"] = strings.TrimSpace(strings.TrimPrefix(text, "Ссылка на RDS:"))
+					} else if strings.HasPrefix(text, "CRC32:") {
+						metadata["CRC32"] = strings.TrimSpace(strings.TrimPrefix(text, "CRC32:"))
+					} else if strings.HasPrefix(text, "CRC64:") {
+						metadata["CRC64"] = strings.TrimSpace(strings.TrimPrefix(text, "CRC64:"))
+					} else if strings.HasPrefix(text, "SHA256:") {
+						metadata["SHA256"] = strings.TrimSpace(strings.TrimPrefix(text, "SHA256:"))
+					} else if strings.HasPrefix(text, "SHA1:") {
+						metadata["SHA1"] = strings.TrimSpace(strings.TrimPrefix(text, "SHA1:"))
+					} else if strings.HasPrefix(text, "BLAKE2sp:") {
+						metadata["BLAKE2sp"] = strings.TrimSpace(strings.TrimPrefix(text, "BLAKE2sp:"))
 					}
 				}
 			}
@@ -424,8 +432,16 @@ func createReadme(readmePath string, metadata map[string]string) error {
 	}
 	defer file.Close()
 
+	// Удаляем ключ "File name" перед записью в README.md
+	delete(metadata, "File name")
+
+	_, err = file.WriteString("## RDS\n")
+	if (err != nil) {
+		return fmt.Errorf("error writing to README.md: %w", err)
+	}
+
 	for key, value := range metadata {
-		_, err := file.WriteString(fmt.Sprintf("%s: %s\n\n", key, value)) // Add an empty line after each entry
+		_, err := file.WriteString(fmt.Sprintf("- **%s**: `%s`\n", key, strings.TrimSpace(value)))
 		if (err != nil) {
 			return fmt.Errorf("error writing to README.md: %w", err)
 		}
@@ -437,13 +453,13 @@ func createReadme(readmePath string, metadata map[string]string) error {
 func updateReadme(readmePath string, metadata map[string]string) error {
 	fmt.Printf("Updating README.md at %s\n", readmePath)
 	file, err := os.OpenFile(readmePath, os.O_RDWR, 0644)
-	if err != nil {
+	if (err != nil) {
 		return fmt.Errorf("error opening README.md: %w", err)
 	}
 	defer file.Close()
 
 	existingContent, err := io.ReadAll(file)
-	if err != nil {
+	if (err != nil) {
 		return fmt.Errorf("error reading README.md: %w", err)
 	}
 
@@ -454,7 +470,7 @@ func updateReadme(readmePath string, metadata map[string]string) error {
 	for _, line := range existingLines {
 		updated := false
 		for key := range metadata {
-			if strings.HasPrefix(line, key+":") {
+			if strings.HasPrefix(line, "- **"+key+"**:") {
 				updated = true
 				break
 			}
@@ -467,30 +483,25 @@ func updateReadme(readmePath string, metadata map[string]string) error {
 		}
 	}
 
+	// Удаляем ключ "File name" перед обновлением README.md
+	delete(metadata, "File name")
+
 	// Add a section header for RDS
 	updatedLines = append(updatedLines, "## RDS")
 
 	// Append new metadata lines
 	for key, value := range metadata {
-		updatedLines = append(updatedLines, fmt.Sprintf("%s: %s", key, value))
-	}
-
-	// Add an empty line after each entry
-	for i := 0; i < len(updatedLines); i++ {
-		if updatedLines[i] != "" {
-			updatedLines[i] += "\n"
-		}
+		updatedLines = append(updatedLines, fmt.Sprintf("- **%s**: `%s`", key, strings.TrimSpace(value)))
 	}
 
 	file.Truncate(0)
 	file.Seek(0, 0)
 	for _, line := range updatedLines {
 		_, err := file.WriteString(line + "\n")
-		if err != nil {
+		if (err != nil) {
 			return fmt.Errorf("error writing to README.md: %w", err)
 		}
 	}
 	fmt.Printf("README.md updated successfully at %s\n", readmePath)
 	return nil
 }
-
