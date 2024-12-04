@@ -396,8 +396,7 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(fileHeader.Filename, ".html") {
 			err = h.fileService.ExtractMetadataFromHTML(dstPath)
 			if err != nil {
-				http.Error(w, "Error extracting metadata from HTML file", http.StatusInternalServerError)
-				return
+				logger.Warningf("Error extracting metadata from HTML file: %v", err)
 			}
 		}
 	}
@@ -525,7 +524,7 @@ func (h *FileHandler) FileMetadataHandler(w http.ResponseWriter, r *http.Request
 	metaFilePath := filepath.Join(filepath.Dir(fullPath), "."+filepath.Base(fullPath)+".meta")
 	metadataFile, err := os.Open(metaFilePath)
 	if os.IsNotExist(err) {
-		// Если файл метаданных от��утствует, возвращаем пустой объект
+		// Если файл метаданных отсутствует, возвращаем пустой объект
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{})
 		return

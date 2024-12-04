@@ -7,8 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/crypto/blake2s"
-	"golang.org/x/net/html"
 	"hash/crc32"
 	"hash/crc64"
 	"io"
@@ -16,6 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/blake2s"
+	"golang.org/x/net/html"
 )
 
 // FileService отвечает за операции с файлами и директориями.
@@ -244,7 +245,7 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]string, error) {
 	readmePath := filepath.Join(dirPath, "README.md")
 	file, err := os.Open(readmePath)
-	if err != nil {
+	if (err != nil) {
 		if os.IsNotExist(err) {
 			return nil, nil // README.md не существует
 		}
@@ -272,7 +273,8 @@ func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]str
 				if len(parts) == 2 {
 					key := strings.TrimSpace(parts[0])
 					value := strings.TrimSuffix(parts[1], "`")
-						metadata["RDS "+key] = strings.TrimSpace(value)
+					// Извлекаем 'Filename' и другие метаданные без префиксов
+					metadata[key] = strings.TrimSpace(value)
 				}
 			}
 		}
@@ -307,16 +309,28 @@ func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]strin
 		return fmt.Errorf("ошибка при извлечении метаданных из README.md: %w", err)
 	}
 
-	// Объединение метаданных
+	// Получение фактического имени файла
+	actualFilename := filepath.Base(filePath)
+
+	// Проверка, совпадает ли имя файла в README с фактическим именем файла
+	if readmeFilename, ok := readmeMetadata["Filename"]; ok && readmeFilename == actualFilename {
+		// Объединение метаданных из README.md с префиксом "RDS "
+		for key, value := range readmeMetadata {
+			if key != "Filename" {
+				existingMetadata["RDS "+key] = value
+			} else {
+				existingMetadata["RDS Filename"] = value
+			}
+		}
+	}
+
+	// Объединение новых метаданных с существующими
 	for key, value := range newMetadata {
 		existingMetadata[key] = value
 	}
-	for key, value := range readmeMetadata {
-		existingMetadata[key] = value
-	}
 
-	// Удаление ключа "File name" из метаданных
-	delete(existingMetadata, "RDS File name")
+	// Удаление ключа "Filename" из метаданных
+	delete(existingMetadata, "Filename")
 
 	// Запись обновленных метаданных обратно в файл
 	file, err := os.Create(metaFilePath)
@@ -389,9 +403,9 @@ func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 				if a.Key == "class" {
 					switch a.Val {
 					case "report-date":
-						metadata["Дата проверки"]= extractText(n, "Дата проверки:")
+						metadata["Дата проверки"] = extractText(n, "Дата проверки:")
 					case "report-rds_number":
-						metadata["RDS"]= extractText(n, "Основание:")
+						metadata["RDS"] = extractText(n, "Основание:")
 					case "report-rds_link":
 						metadata["Ссылка на RDS"] = extractText(n, "Ссылка на RDS:")
 					}
@@ -411,12 +425,22 @@ func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 				}
 			}
 		}
-		fmt.Printf("Metadata: %v\n", metadata)
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			f(c)
 		}
 	}
+
 	f(doc)
+
+	fmt.Printf("Metadata: %v\n", metadata)
+
+	// Check if all required fields are present
+	requiredFields := []string{"Дата проверки", "RDS", "Ссылка на RDS", "Filename", "CRC32", "CRC64", "SHA256", "SHA1", "BLAKE2sp"}
+	for _, field := range requiredFields {
+		if _, ok := metadata[field]; !ok {
+			return nil // Return nil if any required field is missing
+		}
+	}
 
 	readmePath := filepath.Join(filepath.Dir(htmlFilePath), "README.md")
 	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
@@ -431,7 +455,7 @@ func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 func createReadme(readmePath string, metadata map[string]string) error {
 	fmt.Printf("Creating README.md at %s\n", readmePath)
 	file, err := os.Create(readmePath)
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("error creating README.md: %w", err)
 	}
 	defer file.Close()
@@ -440,13 +464,13 @@ func createReadme(readmePath string, metadata map[string]string) error {
 	delete(metadata, "File name")
 
 	_, err = file.WriteString("## RDS\n")
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("error writing to README.md: %w", err)
 	}
 
 	for key, value := range metadata {
 		_, err := file.WriteString(fmt.Sprintf("- **%s**: `%s`\n", key, strings.TrimSpace(value)))
-		if (err != nil) {
+		if err != nil {
 			return fmt.Errorf("error writing to README.md: %w", err)
 		}
 	}
@@ -457,13 +481,13 @@ func createReadme(readmePath string, metadata map[string]string) error {
 func updateReadme(readmePath string, metadata map[string]string) error {
 	fmt.Printf("Updating README.md at %s\n", readmePath)
 	file, err := os.OpenFile(readmePath, os.O_RDWR, 0644)
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("error opening README.md: %w", err)
 	}
 	defer file.Close()
 
 	existingContent, err := io.ReadAll(file)
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("error reading README.md: %w", err)
 	}
 
@@ -502,7 +526,7 @@ func updateReadme(readmePath string, metadata map[string]string) error {
 	file.Seek(0, 0)
 	for _, line := range updatedLines {
 		_, err := file.WriteString(line + "\n")
-		if (err != nil) {
+		if err != nil {
 			return fmt.Errorf("error writing to README.md: %w", err)
 		}
 	}

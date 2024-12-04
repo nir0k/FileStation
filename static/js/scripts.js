@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var body = document.body;
     var editMode = false;
     var originalMetadata = {};
-    var currentFilePath = {};
+    var currentFilePath = ''; // Initialize as an empty string
 
     // Function to set theme
     function setTheme(theme) {
@@ -630,6 +630,8 @@ document.addEventListener('DOMContentLoaded', function() {
             editModeSwitch.checked = false;
             toggleEditMode();
         }
+        // Correctly populate RDS Number
+        document.getElementById('rdsNumber').value = originalMetadata['RDS RDS'] || '';
     }
 
     // Function to close drawer
@@ -903,7 +905,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     rdsNumberLabel.textContent = 'RDS Number:';
                     var rdsNumberValue = document.createElement('input');
                     rdsNumberValue.type = 'text';
-                    rdsNumberValue.value = data['RDS Number'] || '';
+                    rdsNumberValue.value = data['RDS RDS'] || ''; // Correctly populate RDS Number
                     rdsNumberValue.readOnly = true;
                     rdsNumberValue.classList.add('metadata-input');
                     rdsNumberDiv.appendChild(rdsNumberLabel);
@@ -1138,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rdsNumberLabel.textContent = 'RDS Number:';
         var rdsNumberValue = document.createElement('input');
         rdsNumberValue.type = 'text';
-        rdsNumberValue.value = metadata['RDS RDS'] || '';
+        rdsNumberValue.value = metadata['RDS RDS'] || ''; // Correctly populate RDS Number
         rdsNumberValue.readOnly = true;
         rdsNumberValue.classList.add('metadata-input');
         rdsNumberDiv.appendChild(rdsNumberLabel);
