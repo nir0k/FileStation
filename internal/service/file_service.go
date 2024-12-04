@@ -385,29 +385,33 @@ func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				if c.Type == html.TextNode {
-					text := strings.TrimSpace(c.Data)
-					if strings.HasPrefix(text, "Дата проверки:") {
-						metadata["Дата проверки"] = strings.TrimSpace(strings.TrimPrefix(text, "Дата проверки:"))
-					} else if strings.HasPrefix(text, "Основание:") {
-						metadata["RDS"] = strings.TrimSpace(strings.TrimPrefix(text, "Основание:"))
-					} else if strings.HasPrefix(text, "Ссылка на RDS:") {
-						metadata["Ссылка на RDS"] = strings.TrimSpace(strings.TrimPrefix(text, "Ссылка на RDS:"))
-					} else if strings.HasPrefix(text, "CRC32:") {
-						metadata["CRC32"] = strings.TrimSpace(strings.TrimPrefix(text, "CRC32:"))
-					} else if strings.HasPrefix(text, "CRC64:") {
-						metadata["CRC64"] = strings.TrimSpace(strings.TrimPrefix(text, "CRC64:"))
-					} else if strings.HasPrefix(text, "SHA256:") {
-						metadata["SHA256"] = strings.TrimSpace(strings.TrimPrefix(text, "SHA256:"))
-					} else if strings.HasPrefix(text, "SHA1:") {
-						metadata["SHA1"] = strings.TrimSpace(strings.TrimPrefix(text, "SHA1:"))
-					} else if strings.HasPrefix(text, "BLAKE2sp:") {
-						metadata["BLAKE2sp"] = strings.TrimSpace(strings.TrimPrefix(text, "BLAKE2sp:"))
+			for _, a := range n.Attr {
+				if a.Key == "class" {
+					switch a.Val {
+					case "report-date":
+						metadata["Дата проверки"]= extractText(n, "Дата проверки:")
+					case "report-rds_number":
+						metadata["RDS"]= extractText(n, "Основание:")
+					case "report-rds_link":
+						metadata["Ссылка на RDS"] = extractText(n, "Ссылка на RDS:")
 					}
 				}
 			}
 		}
+		if n.Type == html.ElementNode && n.Data == "div" {
+			for _, a := range n.Attr {
+				if a.Key == "id" && a.Val == "artifacts" {
+					content := extractText(n, "")
+					metadata["Filename"] = extractField(content, "Имя:")
+					metadata["CRC32"] = extractField(content, "CRC32:")
+					metadata["CRC64"] = extractField(content, "CRC64:")
+					metadata["SHA256"] = extractField(content, "SHA256:")
+					metadata["SHA1"] = extractField(content, "SHA1:")
+					metadata["BLAKE2sp"] = extractField(content, "BLAKE2sp:")
+				}
+			}
+		}
+		fmt.Printf("Metadata: %v\n", metadata)
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			f(c)
 		}
@@ -504,4 +508,33 @@ func updateReadme(readmePath string, metadata map[string]string) error {
 	}
 	fmt.Printf("README.md updated successfully at %s\n", readmePath)
 	return nil
+}
+
+func extractText(n *html.Node, label string) string {
+	if n.Type == html.TextNode {
+		return n.Data
+	}
+	var result string
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.ElementNode && c.Data == "br" {
+			result += "\n"
+		} else {
+			result += extractText(c, label)
+		}
+	}
+	result = strings.TrimSpace(result)
+	if label != "" {
+		result = strings.TrimPrefix(result, label)
+	}
+	return result
+}
+
+func extractField(content, fieldName string) string {
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, fieldName) {
+			return strings.TrimSpace(strings.TrimPrefix(line, fieldName))
+		}
+	}
+	return ""
 }

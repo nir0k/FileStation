@@ -379,7 +379,7 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			"Version":  versionForFile,
 			"Uploader": username,
 			"CRC32":    crc32Checksum,
-			 "CRC64":    crc64Checksum,
+			"CRC64":    crc64Checksum,
 			"SHA1":     sha1Checksum,
 			"SHA256":   sha256Checksum,
 			"BLAKE2sp": blake2spChecksum,

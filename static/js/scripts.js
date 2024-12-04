@@ -728,7 +728,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Сравнение с оригинальными данными
             const updatedMetadata = {};
-            if (originalMetadata['RDS Number'] !== rdsNumber) updatedMetadata['RDS Number'] = rdsNumber;
+            if (originalMetadata['RDS RDS'] !== rdsNumber) updatedMetadata['RDS RDS'] = rdsNumber;
             if (originalMetadata['RDS CRC32'] !== rdsCRC32) updatedMetadata['RDS CRC32'] = rdsCRC32;
             if (originalMetadata['RDS CRC64'] !== rdsCRC64) updatedMetadata['RDS CRC64'] = rdsCRC64;
             if (originalMetadata['RDS BLAKE2sp'] !== rdsBLAKE2sp) updatedMetadata['RDS BLAKE2sp'] = rdsBLAKE2sp;
@@ -963,7 +963,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     metadataContent.appendChild(rdsGroup);
 
                     // Populate edit form
-                    document.getElementById('rdsNumber').value = data['RDS Number'] || '';
+                    document.getElementById('rdsNumber').value = data['RDS RDS'] || '';
                     document.getElementById('rdsCRC32').value = data['RDS CRC32'] || '';
                     document.getElementById('rdsCRC64').value = data['RDS CRC64'] ? data['RDS CRC64'].toUpperCase() : '';
                     document.getElementById('rdsBLAKE2sp').value = data['RDS BLAKE2sp'] || '';
@@ -1027,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 fetch('/file-metadata?path=' + encodeURIComponent(filePath))
                     .then(response => response.json())
                     .then(metadata => {
-                        document.getElementById('rdsNumber').value = metadata['RDS Number'] || '';
+                        document.getElementById('rdsNumber').value = metadata['RDS RDS'] || '';
                         M.toast({ html: 'Metadata refreshed successfully' });
 
                         // Update the displayed metadata content
@@ -1138,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rdsNumberLabel.textContent = 'RDS Number:';
         var rdsNumberValue = document.createElement('input');
         rdsNumberValue.type = 'text';
-        rdsNumberValue.value = metadata['RDS Number'] || '';
+        rdsNumberValue.value = metadata['RDS RDS'] || '';
         rdsNumberValue.readOnly = true;
         rdsNumberValue.classList.add('metadata-input');
         rdsNumberDiv.appendChild(rdsNumberLabel);
