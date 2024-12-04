@@ -1,3 +1,9 @@
+// TODO: Починить загрузку RDS номера, даты проверки и ссылки на RDS из HTML-файла
+// TODO: Добавить зеленый / крвный значек напротив файла в записимости от проверки метаданных
+// TODO: Добавить редактор для README.md
+// TODO: Добавить обновление данных только для файла указанного в RDS
+// TODO: Добавить возможность загрузки нескольких RDS в одну папку
+
 package main
 
 import (
@@ -10,9 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	// "crypto/sha256"
-	// "golang.org/x/crypto/blake2s"
-	// "hash/crc64"
 
 	"fileStation/internal/config"
 	"fileStation/internal/handler"
