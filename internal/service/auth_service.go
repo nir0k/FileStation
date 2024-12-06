@@ -73,29 +73,29 @@ func (a *AuthService) CreateSession(username string) (string, time.Time) {
 
 // IsValidSession проверяет, действителен ли указанный токен.
 func (a *AuthService) IsValidSession(token string) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+    a.mu.Lock()
+    defer a.mu.Unlock()
 
-	session, exists := a.sessions[token]
-	if !exists || session.Expires.Before(time.Now()) {
-		delete(a.sessions, token) // Удаляем истекшие сессии
-		return false
-	}
+    session, exists := a.sessions[token]
+    if (!exists || session.Expires.Before(time.Now())) {
+        delete(a.sessions, token) // Удаляем истекшие сессии
+        return false
+    }
 
-	return true
+    return true
 }
 
 // GetSessionUsername возвращает имя пользователя для указанного токена.
 func (a *AuthService) GetSessionUsername(token string) (string, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+    a.mu.Lock()
+    defer a.mu.Unlock()
 
-	session, exists := a.sessions[token]
-	if !exists || session.Expires.Before(time.Now()) {
-		return "", errors.New("invalid or expired session")
-	}
+    session, exists := a.sessions[token]
+    if (!exists || session.Expires.Before(time.Now())) {
+        return "", errors.New("invalid or expired session")
+    }
 
-	return session.Username, nil
+    return session.Username, nil
 }
 
 // InvalidateSession удаляет сессию для указанного токена.

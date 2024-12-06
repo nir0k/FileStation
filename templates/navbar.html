@@ -17,7 +17,7 @@
             </li>
             {{else}}
             <li>
-                <a href="/login" data-tooltip="Login" class="tooltipped">
+                <a href="#" data-tooltip="Login" class="tooltipped modal-trigger" data-target="loginModal">
                     <i class="material-icons">login</i>
                 </a>
             </li>
@@ -25,3 +25,22 @@
         </ul>            
     </div>
 </nav>
+
+<!-- Login Modal Structure -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <h4>Login</h4>
+        <div id="loginError" class="card-panel red lighten-2" style="display: none;"></div>
+        <form id="loginForm">
+            <div class="input-field">
+                <input type="text" name="username" id="username" required>
+                <label for="username">Username</label>
+            </div>
+            <div class="input-field">
+                <input type="password" name="password" id="password" required>
+                <label for="password">Password</label>
+            </div>
+            <button type="submit" class="btn waves-effect waves-light">Login</button>
+        </form>
+    </div>
+</div>

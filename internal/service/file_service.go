@@ -383,7 +383,6 @@ func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, er
 }
 
 func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
-	fmt.Printf("Opening HTML file: %s\n", htmlFilePath)
 	file, err := os.Open(htmlFilePath)
 	if err != nil {
 		return fmt.Errorf("error opening HTML file: %w", err)
@@ -432,8 +431,6 @@ func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 
 	f(doc)
 
-	fmt.Printf("Metadata: %v\n", metadata)
-
 	// Check if all required fields are present
 	requiredFields := []string{"Дата проверки", "RDS", "Ссылка на RDS", "Filename", "CRC32", "CRC64", "SHA256", "SHA1", "BLAKE2sp"}
 	for _, field := range requiredFields {
@@ -444,16 +441,13 @@ func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
 
 	readmePath := filepath.Join(filepath.Dir(htmlFilePath), "README.md")
 	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
-		fmt.Printf("README.md does not exist, creating new one at %s\n", readmePath)
 		return createReadme(readmePath, metadata)
 	} else {
-		fmt.Printf("README.md exists, updating at %s\n", readmePath)
 		return updateReadme(readmePath, metadata)
 	}
 }
 
 func createReadme(readmePath string, metadata map[string]string) error {
-	fmt.Printf("Creating README.md at %s\n", readmePath)
 	file, err := os.Create(readmePath)
 	if err != nil {
 		return fmt.Errorf("error creating README.md: %w", err)
@@ -474,12 +468,10 @@ func createReadme(readmePath string, metadata map[string]string) error {
 			return fmt.Errorf("error writing to README.md: %w", err)
 		}
 	}
-	fmt.Printf("README.md created successfully at %s\n", readmePath)
 	return nil
 }
 
 func updateReadme(readmePath string, metadata map[string]string) error {
-	fmt.Printf("Updating README.md at %s\n", readmePath)
 	file, err := os.OpenFile(readmePath, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("error opening README.md: %w", err)
@@ -530,7 +522,6 @@ func updateReadme(readmePath string, metadata map[string]string) error {
 			return fmt.Errorf("error writing to README.md: %w", err)
 		}
 	}
-	fmt.Printf("README.md updated successfully at %s\n", readmePath)
 	return nil
 }
 
