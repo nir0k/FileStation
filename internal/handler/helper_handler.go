@@ -5,6 +5,7 @@ import (
 	"fileStation/internal/service"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -73,6 +74,11 @@ func (h *HelperHandler) DirTreeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Sort directories by 'text' field
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i]["text"].(string)) < strings.ToLower(dirs[j]["text"].(string))
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(dirs)
 }
@@ -104,6 +110,11 @@ func (h *HelperHandler) ListFoldersHandler(w http.ResponseWriter, r *http.Reques
 			folders = append(folders, entry.Name())
 		}
 	}
+
+	// Sort folder names
+	sort.Slice(folders, func(i, j int) bool {
+		return strings.ToLower(folders[i]) < strings.ToLower(folders[j])
+	})
 
 	response := map[string]interface{}{
 		"folders": folders,

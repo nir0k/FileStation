@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -68,11 +69,32 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// List files in the directory
-		files, err := h.fileService.ListDirectory(fullPath)
+		entries, err := h.fileService.ListDirectory(fullPath)
 		if err != nil {
 			http.Error(w, "Error reading directory", http.StatusInternalServerError)
 			return
 		}
+
+			// Separate entries into folders and files
+		var folders, files []os.DirEntry
+		for _, entry := range entries {
+			if entry.IsDir() {
+				folders = append(folders, entry)
+			} else {
+				files = append(files, entry)
+			}
+		}
+
+		// Sort folders and files separately
+		sort.Slice(folders, func(i, j int) bool {
+			return strings.ToLower(folders[i].Name()) < strings.ToLower(folders[j].Name())
+		})
+		sort.Slice(files, func(i, j int) bool {
+			return strings.ToLower(files[i].Name()) < strings.ToLower(files[j].Name())
+		})
+
+		// Combine folders and files, folders first
+		entries = append(folders, files...)
 
 		// Get modification times
 		modTimes, err := h.fileService.GetModificationTimes(fullPath)
@@ -100,7 +122,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 		pageTitle := "fileStation - " + reqPath
 
 		rdsStatuses := make(map[string]string)
-		for _, file := range files {
+		for _, file := range entries {
 			if !file.IsDir() && !strings.HasSuffix(file.Name(), ".md") && !strings.HasSuffix(file.Name(), ".html") && !strings.HasSuffix(file.Name(), ".txt") {
 				metaFilePath := filepath.Join(fullPath, "."+file.Name()+".meta")
 				metadata, err := h.fileService.ReadMetadata(metaFilePath)
@@ -140,7 +162,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			Path:       reqPath,
 			ParentDir:  parentDir,
 			FullPath:   fullPath,
-			Files:      files,
+			Files:      entries,
 			ModTimes:   modTimes,
 			IsLoggedIn: isLoggedIn,
 			Username:   username,
