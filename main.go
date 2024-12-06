@@ -1,8 +1,5 @@
-// TODO: Починить загрузку RDS номера, даты проверки и ссылки на RDS из HTML-файла
-// TODO: Добавить зеленый / крвный значек напротив файла в записимости от проверки метаданных
-// TODO: Добавить редактор для README.md
-// TODO: Добавить обновление данных только для файла указанного в RDS
-// TODO: Добавить возможность загрузки нескольких RDS в одну папку
+// TODO: Добавить modal для логина
+// TODO: расширить таблицу файлов
 
 package main
 
@@ -94,6 +91,7 @@ func loadTemplates() error {
             return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
         },
         "hasSuffix": strings.HasSuffix,
+        "lower": strings.ToLower,
     }
     var err error
 	indexTemplate, err = template.New("base.html").Funcs(funcMap).ParseFS(embeddedFS,

@@ -562,3 +562,19 @@ func extractField(content, fieldName string) string {
 	}
 	return ""
 }
+
+func (fs *FileService) ReadMetadata(metaFilePath string) (map[string]string, error) {
+    file, err := os.Open(metaFilePath)
+    if err != nil {
+        return nil, err
+    }
+    defer file.Close()
+
+    var metadata map[string]string
+    decoder := json.NewDecoder(file)
+    if err := decoder.Decode(&metadata); err != nil {
+        return nil, err
+    }
+
+    return metadata, nil
+}
