@@ -1,5 +1,4 @@
 // TODO: Добавить modal для логина
-// TODO: расширить таблицу файлов
 
 package main
 
@@ -20,7 +19,7 @@ import (
 	"fileStation/pkg/logger"
 )
 
-var appVersion = "2.4.0"
+var appVersion = "2.3.0"
 
 //go:embed templates/* static/*
 var embeddedFS embed.FS
