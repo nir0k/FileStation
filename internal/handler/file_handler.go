@@ -99,6 +99,29 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 
 		pageTitle := "fileStation - " + reqPath
 
+		rdsStatuses := make(map[string]string)
+		for _, file := range files {
+			if !file.IsDir() && !strings.HasSuffix(file.Name(), ".md") && !strings.HasSuffix(file.Name(), ".html") && !strings.HasSuffix(file.Name(), ".txt") {
+				metaFilePath := filepath.Join(fullPath, "."+file.Name()+".meta")
+				metadata, err := h.fileService.ReadMetadata(metaFilePath)
+				if err == nil {
+					if metadata["RDS CRC32"] == metadata["CRC32"] ||
+						metadata["RDS CRC64"] == metadata["CRC64"] ||
+						metadata["RDS SHA1"] == metadata["SHA1"] ||
+						metadata["RDS SHA256"] == metadata["SHA256"] ||
+						metadata["RDS BLAKE2sp"] == metadata["BLAKE2sp"] {
+						rdsStatuses[file.Name()] = "match"
+					} else if metadata["RDS CRC32"] != "" || metadata["RDS CRC64"] != "" || metadata["RDS SHA1"] != "" || metadata["RDS SHA256"] != "" || metadata["RDS BLAKE2sp"] != "" {
+						rdsStatuses[file.Name()] = "mismatch"
+					} else {
+						rdsStatuses[file.Name()] = "unknown"
+					}
+				} else if !os.IsNotExist(err) {
+					rdsStatuses[file.Name()] = "unknown"
+				}
+			}
+		}
+
 		// Data for the template
 		data := struct {
 			Title      string
@@ -111,6 +134,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			Username   string
 			ReadmeHTML template.HTML
 			Version    string
+			RDSStatuses map[string]string
 		}{
 			Title:      pageTitle,
 			Path:       reqPath,
@@ -122,6 +146,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			Username:   username,
 			ReadmeHTML: readmeHTML,
 			Version:    h.version,
+			RDSStatuses: rdsStatuses,
 		}
 
 		h.renderTemplate(w, "index.html", data)

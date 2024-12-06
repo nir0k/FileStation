@@ -1207,4 +1207,36 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshMetadata(currentFilePath);
         });
     }
+
+    function updateRDSStatus() {
+        var rows = document.querySelectorAll('#fileTable tbody tr');
+        rows.forEach(function(row) {
+            var fileName = row.querySelector('td a.file-link')?.getAttribute('data-file');
+            if (fileName) {
+                fetch('/file-metadata?path=' + encodeURIComponent(fileName))
+                    .then(response => response.json())
+                    .then(metadata => {
+                        var rdsStatusCell = row.querySelector('.rds-status');
+                        if (metadata['RDS CRC32'] === metadata['CRC32'] ||
+                            metadata['RDS CRC64'] === metadata['CRC64'] ||
+                            metadata['RDS SHA1'] === metadata['SHA1'] ||
+                            metadata['RDS SHA256'] === metadata['SHA256'] ||
+                            metadata['RDS BLAKE2sp'] === metadata['BLAKE2sp']) {
+                            rdsStatusCell.innerHTML = '<i class="material-icons green-text">check_circle</i>';
+                        } else if (metadata['RDS CRC32'] || metadata['RDS CRC64'] || metadata['RDS SHA1'] || metadata['RDS SHA256'] || metadata['RDS BLAKE2sp']) {
+                            rdsStatusCell.innerHTML = '<i class="material-icons red-text">cancel</i>';
+                        } else if (!fileName.endsWith('.md') && !fileName.endsWith('.html') && !fileName.endsWith('.txt')) {
+                            rdsStatusCell.innerHTML = '<i class="material-icons grey-text">help_outline</i>';
+                        } else {
+                            rdsStatusCell.innerHTML = '<i class="material-icons" style="visibility: hidden;">help_outline</i>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching metadata:', error);
+                    });
+            }
+        });
+    }
+
+    updateRDSStatus();
 });
