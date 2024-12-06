@@ -2,30 +2,33 @@ package service
 
 import (
 	"archive/zip"
+	"bufio"
+	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
+	"hash/crc64"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"hash/crc32"
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
-	"bufio"
+
+	"golang.org/x/crypto/blake2s"
+	"golang.org/x/net/html"
 )
 
 // FileService отвечает за операции с файлами и директориями.
 type FileService struct {
-	baseDir string
+	baseDir     string
 	authService *AuthService
 }
 
 // NewFileService создает новый экземпляр FileService.
 func NewFileService(baseDir string, authService *AuthService) *FileService {
 	return &FileService{
-		baseDir: baseDir,
+		baseDir:     baseDir,
 		authService: authService,
 	}
 }
@@ -239,112 +242,339 @@ func (fs *FileService) GetModificationTimes(path string) (map[string]time.Time, 
 	return modTimes, nil
 }
 
-// ExtractMetadataFromReadme извлекает метаданные из README.md файла.
 func (fs *FileService) ExtractMetadataFromReadme(dirPath string) (map[string]string, error) {
-    readmePath := filepath.Join(dirPath, "README.md")
-    file, err := os.Open(readmePath)
-    if err != nil {
-        if os.IsNotExist(err) {
-            return nil, nil // README.md не существует
-        }
-        return nil, fmt.Errorf("error opening README.md: %w", err)
-    }
-    defer file.Close()
+	readmePath := filepath.Join(dirPath, "README.md")
+	file, err := os.Open(readmePath)
+	if (err != nil) {
+		if os.IsNotExist(err) {
+			return nil, nil // README.md не существует
+		}
+		return nil, fmt.Errorf("ошибка при открытии README.md: %w", err)
+	}
+	defer file.Close()
 
-    metadata := make(map[string]string)
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        line := scanner.Text()
-        if strings.HasPrefix(line, "RDS:") {
-            metadata["RDS Number"] = strings.TrimSpace(strings.TrimPrefix(line, "RDS:"))
-        } else if strings.HasPrefix(line, "CRC32:") {
-            metadata["RDS CRC32"] = strings.TrimSpace(strings.TrimPrefix(line, "CRC32:"))
-        } else if strings.HasPrefix(line, "SHA256:") {
-            metadata["RDS SHA256"] = strings.TrimSpace(strings.TrimPrefix(line, "SHA256:"))
-        }
-    }
-    if err := scanner.Err(); err != nil {
-        return nil, fmt.Errorf("error reading README.md: %w", err)
-    }
-    return metadata, nil
+	metadata := make(map[string]string)
+	scanner := bufio.NewScanner(file)
+	var inRDSSection bool
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == "## RDS" {
+			inRDSSection = true
+			continue
+		}
+		if inRDSSection {
+			if strings.HasPrefix(line, "## ") && line != "## RDS" {
+				// Начался новый раздел, выходим из RDS секции
+				break
+			}
+			if strings.HasPrefix(line, "- **") && strings.Contains(line, "**: `") && strings.HasSuffix(line, "`") {
+				lineContent := strings.TrimPrefix(line, "- **")
+				parts := strings.SplitN(lineContent, "**: `", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					value := strings.TrimSuffix(parts[1], "`")
+					// Извлекаем 'Filename' и другие метаданные без префиксов
+					metadata[key] = strings.TrimSpace(value)
+				}
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("ошибка при чтении README.md: %w", err)
+	}
+	return metadata, nil
 }
 
 func (fs *FileService) AddMetadata(filePath string, newMetadata map[string]string) error {
-    metaFilePath := filepath.Join(filepath.Dir(filePath), "." + filepath.Base(filePath) + ".meta")
+	metaFilePath := filepath.Join(filepath.Dir(filePath), "."+filepath.Base(filePath)+".meta")
 
-    // Чтение существую��их метаданных, если файл существует
-    existingMetadata := make(map[string]string)
-    if _, err := os.Stat(metaFilePath); err == nil {
-        file, err := os.Open(metaFilePath)
-        if (err != nil) {
-            return fmt.Errorf("error opening metadata file: %w", err)
-        }
-        defer file.Close()
+	// Чтение существующих метаданных, если файл существует
+	existingMetadata := make(map[string]string)
+	if _, err := os.Stat(metaFilePath); err == nil {
+		file, err := os.Open(metaFilePath)
+		if err != nil {
+			return fmt.Errorf("ошибка при открытии файла метаданных: %w", err)
+		}
+		defer file.Close()
 
-        decoder := json.NewDecoder(file)
-        if err := decoder.Decode(&existingMetadata); err != nil {
-            return fmt.Errorf("error decoding metadata file: %w", err)
-        }
-    }
+		decoder := json.NewDecoder(file)
+		if err := decoder.Decode(&existingMetadata); err != nil {
+			return fmt.Errorf("ошибка при декодировании файла метаданных: %w", err)
+		}
+	}
 
-    // Обновление существующих метаданных новыми данными
-    for key, value := range newMetadata {
-        existingMetadata[key] = value
-    }
+	// Извлечение метаданных из README.md
+	readmeMetadata, err := fs.ExtractMetadataFromReadme(filepath.Dir(filePath))
+	if err != nil {
+		return fmt.Errorf("ошибка при извлечении метаданных из README.md: %w", err)
+	}
 
-    // Извлечение метаданных из README.md
-    readmeMetadata, err := fs.ExtractMetadataFromReadme(filepath.Dir(filePath))
-    if err != nil {
-        return fmt.Errorf("error extracting metadata from README.md: %w", err)
-    }
-    for key, value := range readmeMetadata {
-        existingMetadata[key] = value
-    }
+	// Получение фактического имени файла
+	actualFilename := filepath.Base(filePath)
 
-    // Запись обновленных метаданных обратно в файл
-    file, err := os.Create(metaFilePath)
-    if err != nil {
-        return fmt.Errorf("error creating metadata file: %w", err)
-    }
-    defer file.Close()
+	// Проверка, совпадает ли имя файла в README с фактическим именем файла
+	if readmeFilename, ok := readmeMetadata["Filename"]; ok && readmeFilename == actualFilename {
+		// Объединение метаданных из README.md с префиксом "RDS "
+		for key, value := range readmeMetadata {
+			if key != "Filename" {
+				existingMetadata["RDS "+key] = value
+			} else {
+				existingMetadata["RDS Filename"] = value
+			}
+		}
+	}
 
-    encoder := json.NewEncoder(file)
-    encoder.SetIndent("", " ") // Для удобства чтения
-    if err := encoder.Encode(existingMetadata); err != nil {
-        return fmt.Errorf("error encoding metadata: %w", err)
-    }
+	// Объединение новых метаданных с существующими
+	for key, value := range newMetadata {
+		existingMetadata[key] = value
+	}
 
-    return nil
+	// Удаление ключа "Filename" из метаданных
+	delete(existingMetadata, "Filename")
+
+	// Запись обновленных метаданных обратно в файл
+	file, err := os.Create(metaFilePath)
+	if err != nil {
+		return fmt.Errorf("ошибка при создании файла метаданных: %w", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", " ") // Для удобства чтения
+	if err := encoder.Encode(existingMetadata); err != nil {
+		return fmt.Errorf("ошибка при кодировании метаданных: %w", err)
+	}
+
+	return nil
 }
 
 // RecalculateHashes пересчитывает хеш-суммы для файла.
 func (fs *FileService) RecalculateHashes(filePath string) (map[string]string, error) {
-    file, err := os.Open(filePath)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+
+	crc32Hash := crc32.NewIEEE()
+	crc64Hash := crc64.New(crc64.MakeTable(crc64.ECMA))
+	sha1Hash := sha1.New()
+	sha256Hash := sha256.New()
+	blake2spHash, err := blake2s.New256(nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating BLAKE2sp hash: %w", err)
+	}
+
+	writer := io.MultiWriter(crc32Hash, crc64Hash, sha1Hash, sha256Hash, blake2spHash)
+
+	if _, err := io.Copy(writer, file); err != nil {
+		return nil, fmt.Errorf("error calculating hashes: %w", err)
+	}
+
+	hashes := map[string]string{
+		"CRC32":    strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32())),
+		"CRC64":    strings.ToUpper(fmt.Sprintf("%x", crc64Hash.Sum(nil))),
+		"SHA1":     fmt.Sprintf("%x", sha1Hash.Sum(nil)),
+		"SHA256":   fmt.Sprintf("%x", sha256Hash.Sum(nil)),
+		"BLAKE2sp": fmt.Sprintf("%x", blake2spHash.Sum(nil)),
+	}
+
+	return hashes, nil
+}
+
+func (fs *FileService) ExtractMetadataFromHTML(htmlFilePath string) error {
+	fmt.Printf("Opening HTML file: %s\n", htmlFilePath)
+	file, err := os.Open(htmlFilePath)
+	if err != nil {
+		return fmt.Errorf("error opening HTML file: %w", err)
+	}
+	defer file.Close()
+
+	doc, err := html.Parse(file)
+	if err != nil {
+		return fmt.Errorf("error parsing HTML file: %w", err)
+	}
+
+	metadata := make(map[string]string)
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "p" {
+			for _, a := range n.Attr {
+				if a.Key == "class" {
+					switch a.Val {
+					case "report-date":
+						metadata["Дата проверки"] = extractText(n, "Дата проверки:")
+					case "report-rds_number":
+						metadata["RDS"] = extractText(n, "Основание:")
+					case "report-rds_link":
+						metadata["Ссылка на RDS"] = extractText(n, "Ссылка на RDS:")
+					}
+				}
+			}
+		}
+		if n.Type == html.ElementNode && n.Data == "div" {
+			for _, a := range n.Attr {
+				if a.Key == "id" && a.Val == "artifacts" {
+					content := extractText(n, "")
+					metadata["Filename"] = extractField(content, "Имя:")
+					metadata["CRC32"] = extractField(content, "CRC32:")
+					metadata["CRC64"] = extractField(content, "CRC64:")
+					metadata["SHA256"] = extractField(content, "SHA256:")
+					metadata["SHA1"] = extractField(content, "SHA1:")
+					metadata["BLAKE2sp"] = extractField(content, "BLAKE2sp:")
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(doc)
+
+	fmt.Printf("Metadata: %v\n", metadata)
+
+	// Check if all required fields are present
+	requiredFields := []string{"Дата проверки", "RDS", "Ссылка на RDS", "Filename", "CRC32", "CRC64", "SHA256", "SHA1", "BLAKE2sp"}
+	for _, field := range requiredFields {
+		if _, ok := metadata[field]; !ok {
+			return nil // Return nil if any required field is missing
+		}
+	}
+
+	readmePath := filepath.Join(filepath.Dir(htmlFilePath), "README.md")
+	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
+		fmt.Printf("README.md does not exist, creating new one at %s\n", readmePath)
+		return createReadme(readmePath, metadata)
+	} else {
+		fmt.Printf("README.md exists, updating at %s\n", readmePath)
+		return updateReadme(readmePath, metadata)
+	}
+}
+
+func createReadme(readmePath string, metadata map[string]string) error {
+	fmt.Printf("Creating README.md at %s\n", readmePath)
+	file, err := os.Create(readmePath)
+	if err != nil {
+		return fmt.Errorf("error creating README.md: %w", err)
+	}
+	defer file.Close()
+
+	// Удаляем ключ "File name" перед записью в README.md
+	delete(metadata, "File name")
+
+	_, err = file.WriteString("## RDS\n")
+	if err != nil {
+		return fmt.Errorf("error writing to README.md: %w", err)
+	}
+
+	for key, value := range metadata {
+		_, err := file.WriteString(fmt.Sprintf("- **%s**: `%s`\n", key, strings.TrimSpace(value)))
+		if err != nil {
+			return fmt.Errorf("error writing to README.md: %w", err)
+		}
+	}
+	fmt.Printf("README.md created successfully at %s\n", readmePath)
+	return nil
+}
+
+func updateReadme(readmePath string, metadata map[string]string) error {
+	fmt.Printf("Updating README.md at %s\n", readmePath)
+	file, err := os.OpenFile(readmePath, os.O_RDWR, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening README.md: %w", err)
+	}
+	defer file.Close()
+
+	existingContent, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("error reading README.md: %w", err)
+	}
+
+	existingLines := strings.Split(string(existingContent), "\n")
+	updatedLines := make([]string, 0, len(existingLines))
+
+	// Remove existing metadata lines and "## RDS" header
+	for _, line := range existingLines {
+		updated := false
+		for key := range metadata {
+			if strings.HasPrefix(line, "- **"+key+"**:") {
+				updated = true
+				break
+			}
+		}
+		if line == "## RDS" {
+			updated = true
+		}
+		if !updated {
+			updatedLines = append(updatedLines, line)
+		}
+	}
+
+	// Удаляем ключ "File name" перед обновлением README.md
+	delete(metadata, "File name")
+
+	// Add a section header for RDS
+	updatedLines = append(updatedLines, "## RDS")
+
+	// Append new metadata lines
+	for key, value := range metadata {
+		updatedLines = append(updatedLines, fmt.Sprintf("- **%s**: `%s`", key, strings.TrimSpace(value)))
+	}
+
+	file.Truncate(0)
+	file.Seek(0, 0)
+	for _, line := range updatedLines {
+		_, err := file.WriteString(line + "\n")
+		if err != nil {
+			return fmt.Errorf("error writing to README.md: %w", err)
+		}
+	}
+	fmt.Printf("README.md updated successfully at %s\n", readmePath)
+	return nil
+}
+
+func extractText(n *html.Node, label string) string {
+	if n.Type == html.TextNode {
+		return n.Data
+	}
+	var result string
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.ElementNode && c.Data == "br" {
+			result += "\n"
+		} else {
+			result += extractText(c, label)
+		}
+	}
+	result = strings.TrimSpace(result)
+	if label != "" {
+		result = strings.TrimPrefix(result, label)
+	}
+	return result
+}
+
+func extractField(content, fieldName string) string {
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, fieldName) {
+			return strings.TrimSpace(strings.TrimPrefix(line, fieldName))
+		}
+	}
+	return ""
+}
+
+func (fs *FileService) ReadMetadata(metaFilePath string) (map[string]string, error) {
+    file, err := os.Open(metaFilePath)
     if err != nil {
-        return nil, fmt.Errorf("error opening file: %w", err)
+        return nil, err
     }
     defer file.Close()
 
-    crc32Hash := crc32.NewIEEE()
-    md5Hash := md5.New()
-    sha1Hash := sha1.New()
-    sha256Hash := sha256.New()
-
-    // MultiWriter to compute checksums
-    writer := io.MultiWriter(crc32Hash, md5Hash, sha1Hash, sha256Hash)
-
-    // Copy data from file to writer and compute hashes
-    if _, err := io.Copy(writer, file); err != nil {
-        return nil, fmt.Errorf("error calculating hashes: %w", err)
+    var metadata map[string]string
+    decoder := json.NewDecoder(file)
+    if err := decoder.Decode(&metadata); err != nil {
+        return nil, err
     }
 
-    hashes := map[string]string{
-        "CRC32":  strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32())),
-        "MD5":    fmt.Sprintf("%x", md5Hash.Sum(nil)),
-        "SHA1":   fmt.Sprintf("%x", sha1Hash.Sum(nil)),
-        "SHA256": fmt.Sprintf("%x", sha256Hash.Sum(nil)),
-    }
-
-    return hashes, nil
+    return metadata, nil
 }
-

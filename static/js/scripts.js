@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var body = document.body;
     var editMode = false;
     var originalMetadata = {};
-    var currentFilePath = {};
+    var currentFilePath = ''; // Initialize as an empty string
 
     // Function to set theme
     function setTheme(theme) {
@@ -141,6 +141,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     input.removeAttribute('required');
                 });
             }
+
+            // Add file paths to the form data
+            var formData = new FormData(uploadForm);
+            var files = uploadFilesInput.files;
+            for (var i = 0; i < files.length; i++) {
+                formData.append('filePaths', files[i].webkitRelativePath || files[i].name);
+            }
+
+            // Submit the form with file paths
+            fetch(uploadForm.action, {
+                method: 'POST',
+                body: formData,
+            }).then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    response.text().then(text => {
+                        M.toast({ html: 'Error uploading files: ' + text });
+                    });
+                }
+            }).catch(error => {
+                console.error('Error uploading files:', error);
+                M.toast({ html: 'Error uploading files' });
+            });
+
+            event.preventDefault(); // Prevent the default form submission
         });
     }
 
@@ -604,6 +630,8 @@ document.addEventListener('DOMContentLoaded', function() {
             editModeSwitch.checked = false;
             toggleEditMode();
         }
+        // Correctly populate RDS Number
+        document.getElementById('rdsNumber').value = originalMetadata['RDS RDS'] || '';
     }
 
     // Function to close drawer
@@ -691,9 +719,10 @@ document.addEventListener('DOMContentLoaded', function() {
         saveMetadataButton.addEventListener('click', function () {
             const rdsNumber = document.getElementById('rdsNumber').value;
             const rdsCRC32 = document.getElementById('rdsCRC32').value;
-            const rdsMD5 = document.getElementById('rdsMD5').value;
             const rdsSHA1 = document.getElementById('rdsSHA1').value;
             const rdsSHA256 = document.getElementById('rdsSHA256').value;
+            const rdsCRC64 = document.getElementById('rdsCRC64').value.toUpperCase();
+            const rdsBLAKE2sp = document.getElementById('rdsBLAKE2sp').value;
             const version = document.getElementById('version').value;
 
             // Use the currentFilePath variable
@@ -701,9 +730,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Сравнение с оригинальными данными
             const updatedMetadata = {};
-            if (originalMetadata['RDS Number'] !== rdsNumber) updatedMetadata['RDS Number'] = rdsNumber;
+            if (originalMetadata['RDS RDS'] !== rdsNumber) updatedMetadata['RDS RDS'] = rdsNumber;
             if (originalMetadata['RDS CRC32'] !== rdsCRC32) updatedMetadata['RDS CRC32'] = rdsCRC32;
-            if (originalMetadata['RDS MD5'] !== rdsMD5) updatedMetadata['RDS MD5'] = rdsMD5;
+            if (originalMetadata['RDS CRC64'] !== rdsCRC64) updatedMetadata['RDS CRC64'] = rdsCRC64;
+            if (originalMetadata['RDS BLAKE2sp'] !== rdsBLAKE2sp) updatedMetadata['RDS BLAKE2sp'] = rdsBLAKE2sp;
             if (originalMetadata['RDS SHA1'] !== rdsSHA1) updatedMetadata['RDS SHA1'] = rdsSHA1;
             if (originalMetadata['RDS SHA256'] !== rdsSHA256) updatedMetadata['RDS SHA256'] = rdsSHA256;
             if (originalMetadata['Version'] !== version) updatedMetadata['Version'] = version;
@@ -832,7 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     hashesGroup.appendChild(hashesHeader);
 
                     // Hash fields
-                    var hashes = ['CRC32', 'MD5', 'SHA1', 'SHA256'];
+                    var hashes = ['CRC32', 'SHA1', 'SHA256', 'CRC64', 'BLAKE2sp'];
                     hashes.forEach(function(hash) {
                         var hashDiv = document.createElement('div');
                         hashDiv.classList.add('metadata-field');
@@ -875,7 +905,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     rdsNumberLabel.textContent = 'RDS Number:';
                     var rdsNumberValue = document.createElement('input');
                     rdsNumberValue.type = 'text';
-                    rdsNumberValue.value = data['RDS Number'] || '';
+                    rdsNumberValue.value = data['RDS RDS'] || ''; // Correctly populate RDS Number
                     rdsNumberValue.readOnly = true;
                     rdsNumberValue.classList.add('metadata-input');
                     rdsNumberDiv.appendChild(rdsNumberLabel);
@@ -885,7 +915,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Other RDS fields with comparison status
                     var rdsFields = [
                         { field: 'RDS CRC32', compareWith: 'CRC32' },
-                        { field: 'RDS MD5', compareWith: 'MD5' },
+                        { field: 'RDS CRC64', compareWith: 'CRC64' },
+                        { field: 'RDS BLAKE2sp', compareWith: 'BLAKE2sp' },
                         { field: 'RDS SHA1', compareWith: 'SHA1' },
                         { field: 'RDS SHA256', compareWith: 'SHA256' }
                     ];
@@ -934,9 +965,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     metadataContent.appendChild(rdsGroup);
 
                     // Populate edit form
-                    document.getElementById('rdsNumber').value = data['RDS Number'] || '';
+                    document.getElementById('rdsNumber').value = data['RDS RDS'] || '';
                     document.getElementById('rdsCRC32').value = data['RDS CRC32'] || '';
-                    document.getElementById('rdsMD5').value = data['RDS MD5'] || '';
+                    document.getElementById('rdsCRC64').value = data['RDS CRC64'] ? data['RDS CRC64'].toUpperCase() : '';
+                    document.getElementById('rdsBLAKE2sp').value = data['RDS BLAKE2sp'] || '';
                     document.getElementById('rdsSHA1').value = data['RDS SHA1'] || '';
                     document.getElementById('rdsSHA256').value = data['RDS SHA256'] || '';
                     document.getElementById('version').value = data['Version'] || '';
@@ -988,15 +1020,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(hashes => {
                 // Update metadata fields with new hashes
                 document.getElementById('rdsCRC32').value = hashes['CRC32'];
-                document.getElementById('rdsMD5').value = hashes['MD5'];
                 document.getElementById('rdsSHA1').value = hashes['SHA1'];
                 document.getElementById('rdsSHA256').value = hashes['SHA256'];
+                document.getElementById('rdsCRC64').value = hashes['CRC64'].toUpperCase();
+                document.getElementById('rdsBLAKE2sp').value = hashes['BLAKE2sp'];
 
                 // Fetch updated metadata from README.md
                 fetch('/file-metadata?path=' + encodeURIComponent(filePath))
                     .then(response => response.json())
                     .then(metadata => {
-                        document.getElementById('rdsNumber').value = metadata['RDS Number'] || '';
+                        document.getElementById('rdsNumber').value = metadata['RDS RDS'] || '';
                         M.toast({ html: 'Metadata refreshed successfully' });
 
                         // Update the displayed metadata content
@@ -1064,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hashesGroup.appendChild(hashesHeader);
 
         // Hash fields
-        var hashFields = ['CRC32', 'MD5', 'SHA1', 'SHA256'];
+        var hashFields = ['CRC32', 'SHA1', 'SHA256', 'CRC64', 'BLAKE2sp'];
         hashFields.forEach(function(hash) {
             var hashDiv = document.createElement('div');
             hashDiv.classList.add('metadata-field');
@@ -1107,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rdsNumberLabel.textContent = 'RDS Number:';
         var rdsNumberValue = document.createElement('input');
         rdsNumberValue.type = 'text';
-        rdsNumberValue.value = metadata['RDS Number'] || '';
+        rdsNumberValue.value = metadata['RDS RDS'] || ''; // Correctly populate RDS Number
         rdsNumberValue.readOnly = true;
         rdsNumberValue.classList.add('metadata-input');
         rdsNumberDiv.appendChild(rdsNumberLabel);
@@ -1117,7 +1150,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Other RDS fields with comparison status
         var rdsFields = [
             { field: 'RDS CRC32', compareWith: 'CRC32' },
-            { field: 'RDS MD5', compareWith: 'MD5' },
+            { field: 'RDS CRC64', compareWith: 'CRC64' },
+            { field: 'RDS BLAKE2sp', compareWith: 'BLAKE2sp' },
             { field: 'RDS SHA1', compareWith: 'SHA1' },
             { field: 'RDS SHA256', compareWith: 'SHA256' }
         ];
@@ -1173,4 +1207,36 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshMetadata(currentFilePath);
         });
     }
+
+    function updateRDSStatus() {
+        var rows = document.querySelectorAll('#fileTable tbody tr');
+        rows.forEach(function(row) {
+            var fileName = row.querySelector('td a.file-link')?.getAttribute('data-file');
+            if (fileName) {
+                fetch('/file-metadata?path=' + encodeURIComponent(fileName))
+                    .then(response => response.json())
+                    .then(metadata => {
+                        var rdsStatusCell = row.querySelector('.rds-status');
+                        if (metadata['RDS CRC32'] === metadata['CRC32'] ||
+                            metadata['RDS CRC64'] === metadata['CRC64'] ||
+                            metadata['RDS SHA1'] === metadata['SHA1'] ||
+                            metadata['RDS SHA256'] === metadata['SHA256'] ||
+                            metadata['RDS BLAKE2sp'] === metadata['BLAKE2sp']) {
+                            rdsStatusCell.innerHTML = '<i class="material-icons green-text">check_circle</i>';
+                        } else if (metadata['RDS CRC32'] || metadata['RDS CRC64'] || metadata['RDS SHA1'] || metadata['RDS SHA256'] || metadata['RDS BLAKE2sp']) {
+                            rdsStatusCell.innerHTML = '<i class="material-icons red-text">cancel</i>';
+                        } else if (!fileName.endsWith('.md') && !fileName.endsWith('.html') && !fileName.endsWith('.txt')) {
+                            rdsStatusCell.innerHTML = '<i class="material-icons grey-text">help_outline</i>';
+                        } else {
+                            rdsStatusCell.innerHTML = '<i class="material-icons" style="visibility: hidden;">help_outline</i>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching metadata:', error);
+                    });
+            }
+        });
+    }
+
+    updateRDSStatus();
 });

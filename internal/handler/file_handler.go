@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/json"
@@ -9,15 +8,18 @@ import (
 	"fileStation/pkg/logger"
 	"fmt"
 	"hash/crc32"
+	"hash/crc64"
 	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/yuin/goldmark"
+	"golang.org/x/crypto/blake2s"
 )
 
 // FileHandler отвечает за обработку запросов, связанных с файлами.
@@ -67,11 +69,32 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// List files in the directory
-		files, err := h.fileService.ListDirectory(fullPath)
+		entries, err := h.fileService.ListDirectory(fullPath)
 		if err != nil {
 			http.Error(w, "Error reading directory", http.StatusInternalServerError)
 			return
 		}
+
+			// Separate entries into folders and files
+		var folders, files []os.DirEntry
+		for _, entry := range entries {
+			if entry.IsDir() {
+				folders = append(folders, entry)
+			} else {
+				files = append(files, entry)
+			}
+		}
+
+		// Sort folders and files separately
+		sort.Slice(folders, func(i, j int) bool {
+			return strings.ToLower(folders[i].Name()) < strings.ToLower(folders[j].Name())
+		})
+		sort.Slice(files, func(i, j int) bool {
+			return strings.ToLower(files[i].Name()) < strings.ToLower(files[j].Name())
+		})
+
+		// Combine folders and files, folders first
+		entries = append(folders, files...)
 
 		// Get modification times
 		modTimes, err := h.fileService.GetModificationTimes(fullPath)
@@ -98,6 +121,29 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 
 		pageTitle := "fileStation - " + reqPath
 
+		rdsStatuses := make(map[string]string)
+		for _, file := range entries {
+			if !file.IsDir() && !strings.HasSuffix(file.Name(), ".md") && !strings.HasSuffix(file.Name(), ".html") && !strings.HasSuffix(file.Name(), ".txt") {
+				metaFilePath := filepath.Join(fullPath, "."+file.Name()+".meta")
+				metadata, err := h.fileService.ReadMetadata(metaFilePath)
+				if err == nil {
+					if metadata["RDS CRC32"] == metadata["CRC32"] ||
+						metadata["RDS CRC64"] == metadata["CRC64"] ||
+						metadata["RDS SHA1"] == metadata["SHA1"] ||
+						metadata["RDS SHA256"] == metadata["SHA256"] ||
+						metadata["RDS BLAKE2sp"] == metadata["BLAKE2sp"] {
+						rdsStatuses[file.Name()] = "match"
+					} else if metadata["RDS CRC32"] != "" || metadata["RDS CRC64"] != "" || metadata["RDS SHA1"] != "" || metadata["RDS SHA256"] != "" || metadata["RDS BLAKE2sp"] != "" {
+						rdsStatuses[file.Name()] = "mismatch"
+					} else {
+						rdsStatuses[file.Name()] = "unknown"
+					}
+				} else if !os.IsNotExist(err) {
+					rdsStatuses[file.Name()] = "unknown"
+				}
+			}
+		}
+
 		// Data for the template
 		data := struct {
 			Title      string
@@ -110,17 +156,19 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			Username   string
 			ReadmeHTML template.HTML
 			Version    string
+			RDSStatuses map[string]string
 		}{
 			Title:      pageTitle,
 			Path:       reqPath,
 			ParentDir:  parentDir,
 			FullPath:   fullPath,
-			Files:      files,
+			Files:      entries,
 			ModTimes:   modTimes,
 			IsLoggedIn: isLoggedIn,
 			Username:   username,
 			ReadmeHTML: readmeHTML,
 			Version:    h.version,
+			RDSStatuses: rdsStatuses,
 		}
 
 		h.renderTemplate(w, "index.html", data)
@@ -337,12 +385,17 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Prepare hash writers
 		crc32Hash := crc32.NewIEEE()
-		md5Hash := md5.New()
+		crc64Hash := crc64.New(crc64.MakeTable(crc64.ECMA))
 		sha1Hash := sha1.New()
 		sha256Hash := sha256.New()
+		blake2spHash, err := blake2s.New256(nil)
+		if err != nil {
+			http.Error(w, "Error creating BLAKE2sp hash", http.StatusInternalServerError)
+			return
+		}
 
 		// MultiWriter to write to dstFile and compute checksums
-		writer := io.MultiWriter(dstFile, crc32Hash, md5Hash, sha1Hash, sha256Hash)
+		writer := io.MultiWriter(dstFile, crc32Hash, crc64Hash, sha1Hash, sha256Hash, blake2spHash)
 
 		// Copy data from uploaded file to dstFile and compute hashes
 		_, err = io.Copy(writer, file)
@@ -355,9 +408,10 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Get the checksums
 		crc32Checksum := strings.ToUpper(fmt.Sprintf("%x", crc32Hash.Sum32()))
-		md5Checksum := fmt.Sprintf("%x", md5Hash.Sum(nil))
+		crc64Checksum := fmt.Sprintf("%x", crc64Hash.Sum(nil))
 		sha1Checksum := fmt.Sprintf("%x", sha1Hash.Sum(nil))
 		sha256Checksum := fmt.Sprintf("%x", sha256Hash.Sum(nil))
+		blake2spChecksum := fmt.Sprintf("%x", blake2spHash.Sum(nil))
 
 		// Determine version
 		var versionForFile string
@@ -372,9 +426,10 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			"Version":  versionForFile,
 			"Uploader": username,
 			"CRC32":    crc32Checksum,
-			"MD5":      md5Checksum,
+			"CRC64":    crc64Checksum,
 			"SHA1":     sha1Checksum,
 			"SHA256":   sha256Checksum,
+			"BLAKE2sp": blake2spChecksum,
 		}
 
 		// Save metadata
@@ -382,6 +437,14 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "Error saving metadata", http.StatusInternalServerError)
 			return
+		}
+
+		// Check if the file is an HTML file and extract metadata
+		if strings.HasSuffix(fileHeader.Filename, ".html") {
+			err = h.fileService.ExtractMetadataFromHTML(dstPath)
+			if err != nil {
+				logger.Warningf("Error extracting metadata from HTML file: %v", err)
+			}
 		}
 	}
 

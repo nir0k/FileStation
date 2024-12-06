@@ -55,6 +55,9 @@
                     <th class="resizable">Name
                         <div class="resize-handle"></div>
                     </th>
+                    <th class="resizable">RDS
+                        <div class="resize-handle"></div>
+                    </th>
                     <th class="resizable">Size
                         <div class="resize-handle"></div>
                     </th>
@@ -76,6 +79,7 @@
                     <td>
                         <a href="{{.ParentDir}}">..</a>
                     </td>
+                    <td></td>
                     <td></td>
                     <td>Folder</td>
                     <td></td>
@@ -105,6 +109,22 @@
                         <a href="{{$.Path}}{{.Name}}" class="file-link" data-file="{{$.Path}}{{.Name}}" download>{{.Name}}</a>
                         <i class="material-icons file-info-icon" data-file="{{$.Path}}{{.Name}}">info</i>
                         {{end}}
+                    </td>
+                    <td class="rds-status">
+                        {{ if and (not .IsDir) (not (or (hasSuffix (lower .Name) ".md") (hasSuffix (lower .Name) ".html") (hasSuffix (lower .Name) ".txt"))) }}
+                            {{ with $rdsStatus := index $.RDSStatuses .Name }}
+                                {{ if eq $rdsStatus "match" }}
+                                    <i class="material-icons green-text">check_circle</i>
+                                {{ else if eq $rdsStatus "mismatch" }}
+                                    <i class="material-icons red-text">cancel</i>
+                                {{ else }}
+                                    <i class="material-icons grey-text">help_outline</i>
+                                {{ end }}
+                            {{ end }}
+                        {{ else }}
+                            <!-- Transparent icon for folders and specified file types -->
+                            <i class="material-icons" style="visibility: hidden;">help_outline</i>
+                        {{ end }}
                     </td>
                     <td>
                         {{if not .IsDir}}
@@ -164,16 +184,20 @@
                         <input type="text" id="rdsCRC32" class="metadata-input">
                     </div>
                     <div class="metadata-field">
-                        <label for="rdsMD5">RDS MD5:</label>
-                        <input type="text" id="rdsMD5" class="metadata-input">
-                    </div>
-                    <div class="metadata-field">
                         <label for="rdsSHA1">RDS SHA1:</label>
                         <input type="text" id="rdsSHA1" class="metadata-input">
                     </div>
                     <div class="metadata-field">
                         <label for="rdsSHA256">RDS SHA256:</label>
                         <input type="text" id="rdsSHA256" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsCRC64">RDS CRC64:</label>
+                        <input type="text" id="rdsCRC64" class="metadata-input">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="rdsBLAKE2sp">RDS BLAKE2sp:</label>
+                        <input type="text" id="rdsBLAKE2sp" class="metadata-input">
                     </div>
                 </div>
             

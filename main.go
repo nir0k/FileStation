@@ -1,3 +1,6 @@
+// TODO: Добавить modal для логина
+// TODO: расширить таблицу файлов
+
 package main
 
 import (
@@ -17,7 +20,7 @@ import (
 	"fileStation/pkg/logger"
 )
 
-var appVersion = "2.2.0"
+var appVersion = "2.4.0"
 
 //go:embed templates/* static/*
 var embeddedFS embed.FS
@@ -88,6 +91,7 @@ func loadTemplates() error {
             return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
         },
         "hasSuffix": strings.HasSuffix,
+        "lower": strings.ToLower,
     }
     var err error
 	indexTemplate, err = template.New("base.html").Funcs(funcMap).ParseFS(embeddedFS,

@@ -4,6 +4,8 @@ go 1.23.2
 
 require (
 	github.com/fatih/color v1.18.0
+	golang.org/x/crypto v0.29.0
+	golang.org/x/net v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -18,5 +20,5 @@ require (
 	github.com/msteinert/pam v1.2.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/yuin/goldmark v1.7.8
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
 )
