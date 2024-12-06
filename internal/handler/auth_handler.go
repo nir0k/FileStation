@@ -28,56 +28,44 @@ func NewAuthHandler(authService *service.AuthService, templates *template.Templa
 
 // LoginHandler обрабатывает запросы на вход пользователя.
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodPost {
+        // Получение данных формы
+        username := r.FormValue("username")
+        password := r.FormValue("password")
 
-	if r.Method == http.MethodGet {
-		// Рендеринг страницы входа без ошибки
-		h.renderTemplate(w, "login.html", map[string]interface{}{
-			"Error": "",
-			"Version": h.version,
-		})
-		return
-	}
+        // Аутентификация пользователя
+        err := h.authService.Authenticate(username, password)
+        if err != nil {
+            w.WriteHeader(http.StatusUnauthorized)
+            w.Write([]byte("Invalid username or password"))
+            return
+        }
 
-	if r.Method == http.MethodPost {
-		// Получение данных формы
-		username := r.FormValue("username")
-		password := r.FormValue("password")
+        // Создание сессии
+        token, expires := h.authService.CreateSession(username)
 
-		// Аутентификация пользователя
-		err := h.authService.Authenticate(username, password)
-		if err != nil {
-			// Отображение страницы входа с сообщением об ошибке
-			h.renderTemplate(w, "login.html", map[string]interface{}{
-				"Error": "Invalid username or password",
-			})
-			return
-		}
+        // Установка cookie с токеном сессии
+        http.SetCookie(w, &http.Cookie{
+            Name:     "session_token",
+            Value:    token,
+            Path:     "/",
+            Expires:  expires,
+            HttpOnly: true,
+            SameSite: http.SameSiteLaxMode, // Set the SameSite attribute
+        })
 
-		// Создание сессии
-		token, expires := h.authService.CreateSession(username)
+        w.WriteHeader(http.StatusOK)
+        return
+    }
 
-		// Установка cookie с токеном сессии
-		http.SetCookie(w, &http.Cookie{
-			Name:     "session_token",
-			Value:    token,
-			Path:     "/",
-			Expires:  expires,
-			HttpOnly: true,
-		})
-
-		// Перенаправление на главную страницу
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+    http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 // LogoutHandler обрабатывает запросы на выход пользователя.
 func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	// Получение токена из cookie
 	cookie, err := r.Cookie("session_token")
-	if err != nil {
+	if (err != nil) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -102,15 +90,17 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session_token")
-		if (err != nil || !h.authService.IsValidSession(cookie.Value)) {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		if err != nil || !h.authService.IsValidSession(cookie.Value) {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
 			return
 		}
 
 		// Добавление имени пользователя в заголовки запроса
 		username, err := h.authService.GetSessionUsername(cookie.Value)
 		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
 			return
 		}
 		r.Header.Set("X-User", username)
@@ -136,7 +126,6 @@ func (h *AuthHandler) CheckSessionHandler(w http.ResponseWriter, r *http.Request
     w.WriteHeader(http.StatusOK)
     json.NewEncoder(w).Encode(map[string]string{"username": username})
 }
-
 
 // renderTemplate - вспомогательная функция для рендеринга шаблонов.
 func (h *AuthHandler) renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {

@@ -127,46 +127,158 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Function to handle unauthorized responses
+    function handleUnauthorizedResponse(response) {
+        if (response.status === 401) {
+            var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
+            loginModal.open();
+            return true;
+        }
+        return false;
+    }
+
+    // Function to check login status before performing an action
+    function checkLoginAndPerformAction(action) {
+        fetch('/check-session', {
+            method: 'GET',
+            credentials: 'include'
+        }).then(response => {
+            if (response.ok) {
+                action();
+            } else {
+                var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
+                loginModal.open();
+            }
+        }).catch(error => {
+            console.error('Error checking session:', error);
+            var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
+            loginModal.open();
+        });
+    }
+
     // Handle upload form submission
     var uploadForm = document.getElementById('uploadForm');
     if (uploadForm) {
         uploadForm.addEventListener('submit', function (event) {
-            var sameVersionCheckbox = document.getElementById('sameVersionCheckbox');
-            var perFileVersionFields = document.getElementById('perFileVersionFields');
+            event.preventDefault();
+            checkLoginAndPerformAction(function() {
+                var sameVersionCheckbox = document.getElementById('sameVersionCheckbox');
+                var perFileVersionFields = document.getElementById('perFileVersionFields');
 
-            // If "same version" checkbox is checked, remove `required` attributes from per-file fields
-            if (sameVersionCheckbox && sameVersionCheckbox.checked) {
-                var fileVersionInputs = perFileVersionFields.querySelectorAll('input[name="fileVersions"]');
-                fileVersionInputs.forEach(function (input) {
-                    input.removeAttribute('required');
-                });
-            }
-
-            // Add file paths to the form data
-            var formData = new FormData(uploadForm);
-            var files = uploadFilesInput.files;
-            for (var i = 0; i < files.length; i++) {
-                formData.append('filePaths', files[i].webkitRelativePath || files[i].name);
-            }
-
-            // Submit the form with file paths
-            fetch(uploadForm.action, {
-                method: 'POST',
-                body: formData,
-            }).then(response => {
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    response.text().then(text => {
-                        M.toast({ html: 'Error uploading files: ' + text });
+                // If "same version" checkbox is checked, remove `required` attributes from per-file fields
+                if (sameVersionCheckbox && sameVersionCheckbox.checked) {
+                    var fileVersionInputs = perFileVersionFields.querySelectorAll('input[name="fileVersions"]');
+                    fileVersionInputs.forEach(function (input) {
+                        input.removeAttribute('required');
                     });
                 }
-            }).catch(error => {
-                console.error('Error uploading files:', error);
-                M.toast({ html: 'Error uploading files' });
-            });
 
-            event.preventDefault(); // Prevent the default form submission
+                // Add file paths to the form data
+                var formData = new FormData(uploadForm);
+                var files = uploadFilesInput.files;
+                for (var i = 0; i < files.length; i++) {
+                    formData.append('filePaths', files[i].webkitRelativePath || files[i].name);
+                }
+
+                // Submit the form with file paths
+                fetch(uploadForm.action, {
+                    method: 'POST',
+                    body: formData,
+                }).then(response => {
+                    if (handleUnauthorizedResponse(response)) return;
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        response.text().then(text => {
+                            M.toast({ html: 'Error uploading files: ' + text });
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error uploading files:', error);
+                    M.toast({ html: 'Error uploading files' });
+                });
+            });
+        });
+    }
+
+    // Handle delete form submission
+    var deleteForm = document.getElementById('deleteForm');
+    if (deleteForm) {
+        deleteForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            checkLoginAndPerformAction(function() {
+                var formData = new FormData(deleteForm);
+                fetch(deleteForm.action, {
+                    method: 'POST',
+                    body: formData,
+                }).then(response => {
+                    if (handleUnauthorizedResponse(response)) return;
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        response.text().then(text => {
+                            M.toast({ html: 'Error deleting files: ' + text });
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error deleting files:', error);
+                    M.toast({ html: 'Error deleting files' });
+                });
+            });
+        });
+    }
+
+    // Handle rename form submission
+    var renameForm = document.getElementById('renameForm');
+    if (renameForm) {
+        renameForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            checkLoginAndPerformAction(function() {
+                var formData = new FormData(renameForm);
+                fetch(renameForm.action, {
+                    method: 'POST',
+                    body: formData,
+                }).then(response => {
+                    if (handleUnauthorizedResponse(response)) return;
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        response.text().then(text => {
+                            M.toast({ html: 'Error renaming file: ' + text });
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error renaming file:', error);
+                    M.toast({ html: 'Error renaming file' });
+                });
+            });
+        });
+    }
+
+    // Handle move form submission
+    var moveForm = document.getElementById('moveForm');
+    if (moveForm) {
+        moveForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            checkLoginAndPerformAction(function() {
+                var formData = new FormData(moveForm);
+                fetch(moveForm.action, {
+                    method: 'POST',
+                    body: formData,
+                }).then(response => {
+                    if (handleUnauthorizedResponse(response)) return;
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        response.text().then(text => {
+                            M.toast({ html: 'Error moving files: ' + text });
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error moving files:', error);
+                    M.toast({ html: 'Error moving files' });
+                });
+            });
         });
     }
 
@@ -376,21 +488,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (uploadButton) {
             uploadButton.addEventListener('click', function(event) {
                 event.preventDefault();
-                fetch('/check-session', {
-                    method: 'GET',
-                    credentials: 'include'
-                }).then(response => {
-                    if (response.ok) {
-                        // Open modal if authorized
-                        var modal = M.Modal.getInstance(document.getElementById('uploadModal'));
-                        modal.open();
-                    } else {
-                        // Redirect to login if not authorized
-                        window.location.href = '/login';
-                    }
-                }).catch(error => {
-                    console.error('Error checking session:', error);
-                    window.location.href = '/login';
+                checkLoginAndPerformAction(function() {
+                    var modal = M.Modal.getInstance(document.getElementById('uploadModal'));
+                    modal.open();
                 });
             });
         }
@@ -400,21 +500,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (createFolderButton) {
             createFolderButton.addEventListener('click', function(event) {
                 event.preventDefault();
-                fetch('/check-session', {
-                    method: 'GET',
-                    credentials: 'include'
-                }).then(response => {
-                    if (response.ok) {
-                        // Open modal if authorized
-                        var modal = M.Modal.getInstance(document.getElementById('createFolderModal'));
-                        modal.open();
-                    } else {
-                        // Redirect to login if not authorized
-                        window.location.href = '/login';
-                    }
-                }).catch(error => {
-                    console.error('Error checking session:', error);
-                    window.location.href = '/login';
+                checkLoginAndPerformAction(function() {
+                    var modal = M.Modal.getInstance(document.getElementById('createFolderModal'));
+                    modal.open();
                 });
             });
         }
@@ -426,26 +514,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (renameButton.classList.contains('disabled')) {
                     return;
                 }
-                fetch('/check-session', {
-                    method: 'GET',
-                    credentials: 'include'
-                }).then(response => {
-                    if (response.ok) {
-                        var checkedItems = document.querySelectorAll('.item-checkbox:checked');
-                        if (checkedItems.length === 1) {
-                            var itemPath = checkedItems[0].value;
-                            document.getElementById('renameOldPath').value = itemPath;
-                            var modal = M.Modal.getInstance(document.getElementById('renameModal'));
-                            modal.open();
-                        } else {
-                            M.toast({html: 'Please select exactly one item to rename.'});
-                        }
+                checkLoginAndPerformAction(function() {
+                    var checkedItems = document.querySelectorAll('.item-checkbox:checked');
+                    if (checkedItems.length === 1) {
+                        var itemPath = checkedItems[0].value;
+                        document.getElementById('renameOldPath').value = itemPath;
+                        var modal = M.Modal.getInstance(document.getElementById('renameModal'));
+                        modal.open();
                     } else {
-                        window.location.href = '/login';
+                        M.toast({html: 'Please select exactly one item to rename.'});
                     }
-                }).catch(error => {
-                    console.error('Error checking session:', error);
-                    window.location.href = '/login';
                 });
             });
         }
@@ -457,35 +535,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (moveButton.classList.contains('disabled')) {
                     return;
                 }
-                fetch('/check-session', {
-                    method: 'GET',
-                    credentials: 'include'
-                }).then(response => {
-                    if (response.ok) {
-                        var checkedItems = document.querySelectorAll('.item-checkbox:checked');
-                        if (checkedItems.length > 0) {
-                            // Get the list of selected item paths
-                            var itemPaths = [];
-                            checkedItems.forEach(function(checkbox) {
-                                itemPaths.push(checkbox.value);
-                            });
-                            // Save the list in a hidden form field
-                            document.getElementById('moveItemPaths').value = JSON.stringify(itemPaths);
+                checkLoginAndPerformAction(function() {
+                    var checkedItems = document.querySelectorAll('.item-checkbox:checked');
+                    if (checkedItems.length > 0) {
+                        // Get the list of selected item paths
+                        var itemPaths = [];
+                        checkedItems.forEach(function(checkbox) {
+                            itemPaths.push(checkbox.value);
+                        });
+                        // Save the list in a hidden form field
+                        document.getElementById('moveItemPaths').value = JSON.stringify(itemPaths);
 
-                            // Display the list of selected items
-                            displaySelectedItems(itemPaths);
+                        // Display the list of selected items
+                        displaySelectedItems(itemPaths);
 
-                            // Initialize folder navigation
-                            initFolderNavigation('/');
-                        } else {
-                            M.toast({html: 'Please select at least one item to move.'});
-                        }
+                        // Initialize folder navigation
+                        initFolderNavigation('/');
                     } else {
-                        window.location.href = '/login';
+                        M.toast({html: 'Please select at least one item to move.'});
                     }
-                }).catch(error => {
-                    console.error('Error checking session:', error);
-                    window.location.href = '/login';
                 });
             });
 
@@ -706,7 +774,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (isLoggedIn) {
                         toggleEditMode();
                     } else {
-                        window.location.href = '/login';
+                        var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
+                        loginModal.open();
                     }
                 });
             }
@@ -1239,4 +1308,32 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     updateRDSStatus();
+
+    // Handle login form submission
+    var loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            var formData = new FormData(loginForm);
+            fetch('/login', {
+                method: 'POST',
+                body: formData,
+            }).then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    response.text().then(text => {
+                        var loginError = document.getElementById('loginError');
+                        loginError.textContent = text;
+                        loginError.style.display = 'block';
+                    });
+                }
+            }).catch(error => {
+                console.error('Error logging in:', error);
+                var loginError = document.getElementById('loginError');
+                loginError.textContent = 'Error logging in';
+                loginError.style.display = 'block';
+            });
+        });
+    }
 });
