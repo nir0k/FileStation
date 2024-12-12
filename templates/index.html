@@ -234,15 +234,14 @@
             <h5>Edit README.md</h5>
             <div id="editMode">
                 <textarea id="readmeEditor" class="materialize-textarea">{{ .ReadmeContent }}</textarea>
-                <button class="btn blue" id="previewReadmeButton">Preview</button>
             </div>
             <div id="previewMode" style="display: none;">
                 <div id="readmePreview"></div>
-                <button class="btn blue" id="editReadmeButtonFromPreview">Edit</button>
             </div>
         </div>
         <div class="modal-footer">
-            <!-- Ensure the cancel button has the modal-close class -->
+            <button class="btn blue" id="previewReadmeButton" style="position: absolute; left: 20px;">Preview</button>
+            <button class="btn blue" id="editReadmeButtonFromPreview" style="display: none; position: absolute; left: 20px;">Edit</button>
             <button class="modal-close btn red" id="cancelReadmeButton">Cancel</button>
             <button class="btn blue" id="saveReadmeButton">Save</button>
         </div>
@@ -377,4 +376,19 @@
 
 <!-- Подключение библиотеки clipboard.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+<script>
+document.getElementById('previewReadmeButton').addEventListener('click', function() {
+    document.getElementById('editMode').style.display = 'none';
+    document.getElementById('previewMode').style.display = 'block';
+    document.getElementById('previewReadmeButton').style.display = 'none';
+    document.getElementById('editReadmeButtonFromPreview').style.display = 'inline-block';
+});
+
+document.getElementById('editReadmeButtonFromPreview').addEventListener('click', function() {
+    document.getElementById('editMode').style.display = 'block';
+    document.getElementById('previewMode').style.display = 'none';
+    document.getElementById('previewReadmeButton').style.display = 'inline-block';
+    document.getElementById('editReadmeButtonFromPreview').style.display = 'none';
+});
+</script>
 {{ end }}
