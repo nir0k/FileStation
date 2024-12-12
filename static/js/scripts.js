@@ -1395,7 +1395,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (saveReadmeButton) {
         saveReadmeButton.addEventListener('click', function() {
             var markdownContent = readmeEditor.value;
-            fetch('/save-readme', {
+            var currentPath = document.querySelector('input[name="currentPath"]').value;
+            fetch('/save-readme?path=' + encodeURIComponent(currentPath), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1415,6 +1416,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (cancelReadmeButton) {
         cancelReadmeButton.addEventListener('click', function() {
             readmeModalInstance.close();
+        });
+    }
+
+    var createReadmeButton = document.getElementById('createReadmeButton');
+    if (createReadmeButton) {
+        createReadmeButton.addEventListener('click', function() {
+            // Reset to edit mode when opening the modal
+            document.getElementById('editMode').style.display = 'block';
+            document.getElementById('previewMode').style.display = 'none';
+            var readmeModalInstance = M.Modal.getInstance(document.getElementById('editReadmeModal'));
+            readmeModalInstance.open();
         });
     }
 });

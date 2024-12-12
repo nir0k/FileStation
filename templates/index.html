@@ -221,12 +221,16 @@
     </div>
 
     <!-- Readme Content -->
-    {{ if .ReadmeHTML }}
-    <div class="readme-content" style="margin-top: 40px;">
-        {{ .ReadmeHTML }}
-        <button class="btn blue" id="editReadmeButton">Edit README</button>
+    <div style="margin-top: 40px;">
+        {{ if .ReadmeHTML }}
+            <button class="btn blue" id="editReadmeButton">Edit README</button>
+            <div class="readme-content">
+                {{ .ReadmeHTML }}
+            </div>
+        {{ else }}
+            <button class="btn blue" id="createReadmeButton">Create README</button>
+        {{ end }}
     </div>
-    {{ end }}
 
     <!-- Edit README Modal -->
     <div id="editReadmeModal" class="modal">

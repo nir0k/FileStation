@@ -742,10 +742,14 @@ func (h *FileHandler) SaveReadmeHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fullPath := h.fileService.GetFullPath(r.URL.Query().Get("path"))
-	readmePath := filepath.Join(fullPath, "README.md")
+	currentPath := r.URL.Query().Get("path")
+	if currentPath == "" {
+		http.Error(w, "Path is required", http.StatusBadRequest)
+		return
+	}
 
-	err = os.WriteFile(readmePath, []byte(requestData.Content), 0644)
+	fullPath := h.fileService.GetFullPath(filepath.Join(currentPath, "README.md"))
+	err = h.fileService.SaveFile(fullPath, strings.NewReader(requestData.Content))
 	if err != nil {
 		http.Error(w, "Error saving README.md", http.StatusInternalServerError)
 		return
