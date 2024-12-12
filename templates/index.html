@@ -223,12 +223,16 @@
     <!-- Readme Content -->
     <div style="margin-top: 40px;">
         {{ if .ReadmeHTML }}
-            <button class="btn blue" id="editReadmeButton">Edit README</button>
+            {{ if .IsLoggedIn }}
+                <button class="btn blue" id="editReadmeButton">Edit README</button>
+            {{ end }}
             <div class="readme-content">
                 {{ .ReadmeHTML }}
             </div>
         {{ else }}
-            <button class="btn blue" id="createReadmeButton">Create README</button>
+            {{ if .IsLoggedIn }}
+                <button class="btn blue" id="createReadmeButton">Create README</button>
+            {{ end }}
         {{ end }}
     </div>
 

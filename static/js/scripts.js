@@ -1357,10 +1357,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (editReadmeButton) {
         editReadmeButton.addEventListener('click', function() {
-            // Reset to edit mode when opening the modal
-            editMode.style.display = 'block';
-            previewMode.style.display = 'none';
-            readmeModalInstance.open();
+            checkLoginAndPerformAction(function() {
+                // Reset to edit mode when opening the modal
+                editMode.style.display = 'block';
+                previewMode.style.display = 'none';
+                readmeModalInstance.open();
+            });
         });
     }
 
@@ -1422,11 +1424,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var createReadmeButton = document.getElementById('createReadmeButton');
     if (createReadmeButton) {
         createReadmeButton.addEventListener('click', function() {
-            // Reset to edit mode when opening the modal
-            document.getElementById('editMode').style.display = 'block';
-            document.getElementById('previewMode').style.display = 'none';
-            var readmeModalInstance = M.Modal.getInstance(document.getElementById('editReadmeModal'));
-            readmeModalInstance.open();
+            checkLoginAndPerformAction(function() {
+                // Reset to edit mode when opening the modal
+                document.getElementById('editMode').style.display = 'block';
+                document.getElementById('previewMode').style.display = 'none';
+                var readmeModalInstance = M.Modal.getInstance(document.getElementById('editReadmeModal'));
+                readmeModalInstance.open();
+            });
         });
     }
 });
