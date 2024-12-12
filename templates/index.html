@@ -376,36 +376,6 @@
     </div>
 
 </div>
-
 <!-- Подключение библиотеки clipboard.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
-<script>
-document.getElementById('previewReadmeButton').addEventListener('click', function() {
-    document.getElementById('editMode').style.display = 'none';
-    document.getElementById('previewMode').style.display = 'block';
-    document.getElementById('previewReadmeButton').style.display = 'none';
-    document.getElementById('editReadmeButtonFromPreview').style.display = 'inline-block';
-});
-
-document.getElementById('editReadmeButtonFromPreview').addEventListener('click', function() {
-    document.getElementById('editMode').style.display = 'block';
-    document.getElementById('previewMode').style.display = 'none';
-    document.getElementById('previewReadmeButton').style.display = 'inline-block';
-    document.getElementById('editReadmeButtonFromPreview').style.display = 'none';
-});
-
-document.getElementById('toggleFullscreenButton').addEventListener('click', function() {
-    const modal = document.getElementById('editReadmeModal');
-    const modalContent = modal.querySelector('.modal-content');
-    if (modal.classList.contains('fullscreen')) {
-        modal.classList.remove('fullscreen');
-        modalContent.classList.remove('fullscreen');
-        this.innerHTML = '<i class="material-icons">fullscreen</i>';
-    } else {
-        modal.classList.add('fullscreen');
-        modalContent.classList.add('fullscreen');
-        this.innerHTML = '<i class="material-icons">fullscreen_exit</i>';
-    }
-});
-</script>
 {{ end }}
