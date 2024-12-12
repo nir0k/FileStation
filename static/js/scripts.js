@@ -518,7 +518,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     var checkedItems = document.querySelectorAll('.item-checkbox:checked');
                     if (checkedItems.length === 1) {
                         var itemPath = checkedItems[0].value;
+                        var itemName = itemPath.split('/').pop();
                         document.getElementById('renameOldPath').value = itemPath;
+                        document.getElementById('newName').value = itemName;
+                        document.getElementById('newNameLabel').classList.add('active');
                         var modal = M.Modal.getInstance(document.getElementById('renameModal'));
                         modal.open();
                     } else {
