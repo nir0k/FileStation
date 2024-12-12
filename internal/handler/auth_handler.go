@@ -35,7 +35,8 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
         // Аутентификация пользователя
         err := h.authService.Authenticate(username, password)
-        if err != nil {
+        if (err != nil) {
+            logger.Infof("Login failed for user: %s", username)
             w.WriteHeader(http.StatusUnauthorized)
             w.Write([]byte("Invalid username or password"))
             return
@@ -54,6 +55,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
             SameSite: http.SameSiteLaxMode, // Set the SameSite attribute
         })
 
+        logger.Infof("Login successful for user: %s", username)
         w.WriteHeader(http.StatusOK)
         return
     }

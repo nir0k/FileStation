@@ -826,6 +826,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             toggleEditMode(); // Reset edit mode
                         }
                         closeDrawer(); // Close the drawer after saving
+                        return; // Add return statement to prevent further execution
                     } else {
                         M.toast({ html: 'Error saving metadata' });
                     }

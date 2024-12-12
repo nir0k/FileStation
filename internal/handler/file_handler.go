@@ -205,8 +205,13 @@ func (h *FileHandler) isLoggedIn(r *http.Request) bool {
 func (h *FileHandler) renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
 	err := h.templates.ExecuteTemplate(w, "base.html", data)
 	if err != nil {
-		logger.Errorf("Error rendering template %s: %v", tmpl, err)
-		http.Error(w, "Error rendering template", http.StatusInternalServerError)
+		// Check if the error is related to http2 stream closed
+		if strings.Contains(err.Error(), "http2: stream closed") {
+			logger.Debugf("HTTP2 stream closed error while rendering template %s: %v", tmpl, err)
+		} else {
+			logger.Errorf("Error rendering template %s: %v", tmpl, err)
+			http.Error(w, "Error rendering template", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -446,6 +451,8 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 				logger.Warningf("Error extracting metadata from HTML file: %v", err)
 			}
 		}
+
+		logger.Infof("User %s uploaded file: %s", username, fileHeader.Filename)
 	}
 
 	http.Redirect(w, r, reqPath, http.StatusSeeOther)
@@ -455,6 +462,17 @@ func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 func (h *FileHandler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	username, err := h.authService.GetSessionUsername(cookie.Value)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -472,6 +490,7 @@ func (h *FileHandler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error deleting item", http.StatusInternalServerError)
 			return
 		}
+		logger.Infof("User %s deleted item: %s", username, item)
 	}
 
 	// Redirect to the current directory after deletion
@@ -510,6 +529,17 @@ func (h *FileHandler) RenameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	username, err := h.authService.GetSessionUsername(cookie.Value)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	oldPath := r.FormValue("oldPath")
 	newName := r.FormValue("newName")
 	if oldPath == "" || newName == "" {
@@ -520,12 +550,13 @@ func (h *FileHandler) RenameHandler(w http.ResponseWriter, r *http.Request) {
 	fullOldPath := h.fileService.GetFullPath(oldPath)
 	fullNewPath := filepath.Join(filepath.Dir(fullOldPath), newName)
 
-	err := h.fileService.RenamePath(fullOldPath, fullNewPath)
+	err = h.fileService.RenamePath(fullOldPath, fullNewPath)
 	if err != nil {
 		http.Error(w, "Error renaming item", http.StatusInternalServerError)
 		return
 	}
 
+	logger.Infof("User %s renamed item from %s to %s", username, oldPath, newName)
 	http.Redirect(w, r, filepath.Dir(oldPath), http.StatusSeeOther)
 }
 
@@ -536,11 +567,22 @@ func (h *FileHandler) MoveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	username, err := h.authService.GetSessionUsername(cookie.Value)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	itemPathsJSON := r.FormValue("itemPaths")
 	destinationPath := r.FormValue("destinationPath")
 
 	var itemPaths []string
-	err := json.Unmarshal([]byte(itemPathsJSON), &itemPaths)
+	err = json.Unmarshal([]byte(itemPathsJSON), &itemPaths)
 	if err != nil {
 		http.Error(w, "Invalid item paths", http.StatusBadRequest)
 		return
@@ -555,6 +597,8 @@ func (h *FileHandler) MoveHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error moving item", http.StatusInternalServerError)
 			return
 		}
+
+		logger.Infof("User %s moved item from %s to %s", username, itemPath, destinationPath)
 	}
 
 	http.Redirect(w, r, destinationPath, http.StatusSeeOther)
@@ -625,8 +669,19 @@ func (h *FileHandler) SaveMetadataHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	username, err := h.authService.GetSessionUsername(cookie.Value)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var metadata map[string]string
-	err := json.NewDecoder(r.Body).Decode(&metadata)
+	err = json.NewDecoder(r.Body).Decode(&metadata)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -645,5 +700,6 @@ func (h *FileHandler) SaveMetadataHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	logger.Infof("User %s updated metadata for file: %s", username, filePath)
 	w.WriteHeader(http.StatusOK)
 }

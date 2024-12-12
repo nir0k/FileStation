@@ -19,7 +19,7 @@ import (
 	"fileStation/pkg/logger"
 )
 
-var appVersion = "2.3.0"
+var appVersion = "2.4.0"
 
 //go:embed templates/* static/*
 var embeddedFS embed.FS
@@ -132,7 +132,7 @@ func setup( cfg *config.Config, mux *http.ServeMux) {
 		Format:        "standard",
 		FileLevel:     cfg.Logging.LogSeverity,
 		ConsoleLevel:  "info",
-		ConsoleOutput: true,
+		ConsoleOutput: false,
 		EnableRotation: true,
 		RotationConfig: logger.RotationConfig{
 			MaxSize:    cfg.Logging.LogMaxSize,

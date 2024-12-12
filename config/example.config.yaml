@@ -12,7 +12,7 @@ web-server:
 # Logging configuration
 logging:
   # Log path
-  log_file: "./logs/app.json"
+  log_file: "./logs/app.log"
   # Log severity
   log_severity: "trace"
   # Log max size
