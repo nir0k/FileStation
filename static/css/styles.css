@@ -521,6 +521,7 @@ th.resizable .resize-handle {
 .modal-content {
     overflow-y: auto;
     max-height: calc(100vh - 150px);
+    resize: both;
 }
 
 .modal-footer {
@@ -528,4 +529,24 @@ th.resizable .resize-handle {
     bottom: 0;
     background: white;
     z-index: 1;
+}
+
+.modal.fullscreen {
+    width: 100vw;
+    height: 100vh;
+    max-height: none;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.modal-content.fullscreen {
+    width: 100%;
+    height: calc(100% - 64px); /* Adjust height to account for modal-footer */
+    max-height: none;
+    max-width: none;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
 }

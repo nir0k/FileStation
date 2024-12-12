@@ -230,8 +230,11 @@
 
     <!-- Edit README Modal -->
     <div id="editReadmeModal" class="modal">
-        <div class="modal-content" style="overflow-y: auto; max-height: calc(100vh - 150px);">
+        <div class="modal-content" style="overflow-y: auto; max-height: calc(100vh - 150px); resize: both;">
             <h5>Edit README.md</h5>
+            <button id="toggleFullscreenButton" class="btn-floating btn-small waves-effect waves-light blue" style="position: absolute; top: 10px; right: 10px;">
+                <i class="material-icons">fullscreen</i>
+            </button>
             <div id="editMode">
                 <textarea id="readmeEditor" class="materialize-textarea">{{ .ReadmeContent }}</textarea>
             </div>
@@ -389,6 +392,20 @@ document.getElementById('editReadmeButtonFromPreview').addEventListener('click',
     document.getElementById('previewMode').style.display = 'none';
     document.getElementById('previewReadmeButton').style.display = 'inline-block';
     document.getElementById('editReadmeButtonFromPreview').style.display = 'none';
+});
+
+document.getElementById('toggleFullscreenButton').addEventListener('click', function() {
+    const modal = document.getElementById('editReadmeModal');
+    const modalContent = modal.querySelector('.modal-content');
+    if (modal.classList.contains('fullscreen')) {
+        modal.classList.remove('fullscreen');
+        modalContent.classList.remove('fullscreen');
+        this.innerHTML = '<i class="material-icons">fullscreen</i>';
+    } else {
+        modal.classList.add('fullscreen');
+        modalContent.classList.add('fullscreen');
+        this.innerHTML = '<i class="material-icons">fullscreen_exit</i>';
+    }
 });
 </script>
 {{ end }}
