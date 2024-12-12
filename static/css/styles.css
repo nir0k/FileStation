@@ -517,3 +517,15 @@ th.resizable .resize-handle {
 .modal-footer .modal-close.btn-flat:hover {
     background-color: rgba(0, 0, 0, 0.1); /* Add hover effect */
 }
+
+.modal-content {
+    overflow-y: auto;
+    max-height: calc(100vh - 150px);
+}
+
+.modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    z-index: 1;
+}

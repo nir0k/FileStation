@@ -230,7 +230,7 @@
 
     <!-- Edit README Modal -->
     <div id="editReadmeModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="overflow-y: auto; max-height: calc(100vh - 150px);">
             <h5>Edit README.md</h5>
             <div id="editMode">
                 <textarea id="readmeEditor" class="materialize-textarea">{{ .ReadmeContent }}</textarea>
@@ -239,7 +239,7 @@
                 <div id="readmePreview"></div>
             </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" style="position: sticky; bottom: 0; background: white;">
             <button class="btn blue" id="previewReadmeButton" style="position: absolute; left: 20px;">Preview</button>
             <button class="btn blue" id="editReadmeButtonFromPreview" style="display: none; position: absolute; left: 20px;">Edit</button>
             <button class="modal-close btn red" id="cancelReadmeButton">Cancel</button>
