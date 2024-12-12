@@ -1340,4 +1340,81 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Scripts moved from index.html
+    var editReadmeButton = document.getElementById('editReadmeButton');
+    var editReadmeModal = document.getElementById('editReadmeModal');
+    var previewReadmeButton = document.getElementById('previewReadmeButton');
+    var editReadmeButtonFromPreview = document.getElementById('editReadmeButtonFromPreview');
+    var readmePreview = document.getElementById('readmePreview');
+    var saveReadmeButton = document.getElementById('saveReadmeButton');
+    var cancelReadmeButton = document.getElementById('cancelReadmeButton');
+    var readmeEditor = document.getElementById('readmeEditor');
+    var editMode = document.getElementById('editMode');
+    var previewMode = document.getElementById('previewMode');
+
+    var readmeModalInstance = M.Modal.getInstance(editReadmeModal);
+
+    if (editReadmeButton) {
+        editReadmeButton.addEventListener('click', function() {
+            // Reset to edit mode when opening the modal
+            editMode.style.display = 'block';
+            previewMode.style.display = 'none';
+            readmeModalInstance.open();
+        });
+    }
+
+    if (previewReadmeButton) {
+        previewReadmeButton.addEventListener('click', function() {
+            var markdownContent = readmeEditor.value;
+            fetch('/preview-markdown', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: markdownContent })
+            })
+            .then(response => response.text())
+            .then(html => {
+                readmePreview.innerHTML = html;
+                // Switch to preview mode
+                editMode.style.display = 'none';
+                previewMode.style.display = 'block';
+            });
+        });
+    }
+
+    if (editReadmeButtonFromPreview) {
+        editReadmeButtonFromPreview.addEventListener('click', function() {
+            // Switch back to edit mode
+            previewMode.style.display = 'none';
+            editMode.style.display = 'block';
+        });
+    }
+
+    if (saveReadmeButton) {
+        saveReadmeButton.addEventListener('click', function() {
+            var markdownContent = readmeEditor.value;
+            fetch('/save-readme', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: markdownContent })
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error saving README.md');
+                }
+            });
+        });
+    }
+
+    if (cancelReadmeButton) {
+        cancelReadmeButton.addEventListener('click', function() {
+            readmeModalInstance.close();
+        });
+    }
 });

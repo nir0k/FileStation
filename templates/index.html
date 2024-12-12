@@ -224,8 +224,29 @@
     {{ if .ReadmeHTML }}
     <div class="readme-content" style="margin-top: 40px;">
         {{ .ReadmeHTML }}
+        <button class="btn blue" id="editReadmeButton">Edit README</button>
     </div>
     {{ end }}
+
+    <!-- Edit README Modal -->
+    <div id="editReadmeModal" class="modal">
+        <div class="modal-content">
+            <h5>Edit README.md</h5>
+            <div id="editMode">
+                <textarea id="readmeEditor" class="materialize-textarea">{{ .ReadmeContent }}</textarea>
+                <button class="btn blue" id="previewReadmeButton">Preview</button>
+            </div>
+            <div id="previewMode" style="display: none;">
+                <div id="readmePreview"></div>
+                <button class="btn blue" id="editReadmeButtonFromPreview">Edit</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <!-- Ensure the cancel button has the modal-close class -->
+            <button class="modal-close btn red" id="cancelReadmeButton">Cancel</button>
+            <button class="btn blue" id="saveReadmeButton">Save</button>
+        </div>
+    </div>
 
     <!-- Upload Modal -->
     <div id="uploadModal" class="modal">

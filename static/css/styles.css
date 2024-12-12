@@ -44,7 +44,7 @@ body.light-theme {
 }
 body.dark-theme {
     background-color: #121212;
-    color: #ffffff;
+    color: #e0e0e0; /* Adjusted text color for dark theme */
 }
 .dark-theme .nav-wrapper {
     background-color: #1e1e1e;
@@ -61,6 +61,9 @@ body.dark-theme {
 .dark-theme .modal {
     background-color: #1e1e1e;
     color: #ffffff;
+}
+.dark-theme .modal-close {
+    color: #ffffff; /* Ensure 'Cancel' button is visible in dark theme */
 }
 th.resizable {
     position: relative;
@@ -327,7 +330,7 @@ th.resizable .resize-handle {
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 400px; /* Увеличенная ши��ина */
+    width: 400px; /* Увеличенная ширина */
     max-width: 100%; /* Добавлено для автоматической подстройки размера */
     background-color: white;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
@@ -487,4 +490,30 @@ th.resizable .resize-handle {
 
 .switch input[type="checkbox"]:checked + .lever::before {
     left: 17px;
+}
+
+.dark-theme .materialize-textarea {
+    color: #ffffff; /* Ensure editor text is visible in dark theme */
+}
+.dark-theme #readmePreview {
+    color: #ffffff; /* Ensure preview text is visible in dark theme */
+}
+.light-theme #readmePreview {
+    color: #000000; /* Ensure preview text is visible in light theme */
+}
+
+.modal-footer .modal-close.btn-flat {
+    color: inherit; /* Use the current text color */
+}
+
+.dark-theme .modal-footer .modal-close.btn-flat {
+    color: #ffffff; /* Ensure visibility in dark theme */
+}
+
+.light-theme .modal-footer .modal-close.btn-flat {
+    color: #000000; /* Ensure visibility in light theme */
+}
+
+.modal-footer .modal-close.btn-flat:hover {
+    background-color: rgba(0, 0, 0, 0.1); /* Add hover effect */
 }

@@ -172,6 +172,8 @@ func setup( cfg *config.Config, mux *http.ServeMux) {
 	mux.HandleFunc("/list-folders", helperHandler.ListFoldersHandler)
 	mux.HandleFunc("/file-metadata", fileHandler.FileMetadataHandler)
 	mux.HandleFunc("/recalculate-hashes", fileHandler.RecalculateHashesHandler)
+	mux.HandleFunc("/preview-markdown", fileHandler.PreviewMarkdownHandler)
+	mux.HandleFunc("/save-readme", fileHandler.SaveReadmeHandler)
 
 	// Защищённые маршруты
 	mux.Handle("/upload", authHandler.Middleware(http.HandlerFunc(fileHandler.UploadHandler)))
