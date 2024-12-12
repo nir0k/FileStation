@@ -6,18 +6,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to set theme
     function setTheme(theme) {
-        if (theme === 'dark') {
-            body.classList.remove('light-theme');
-            body.classList.add('dark-theme');
-        } else {
-            body.classList.remove('dark-theme');
-            body.classList.add('light-theme');
-        }
-        localStorage.setItem('theme', theme);
-        if (typeof M !== 'undefined') {
-            M.updateTextFields(); // Reinitialize input labels
-        }
-        applyThemeToDrawer(theme); // Apply theme to drawer
+        requestAnimationFrame(() => {
+            if (theme === 'dark') {
+                body.classList.remove('light-theme');
+                body.classList.add('dark-theme');
+            } else {
+                body.classList.remove('dark-theme');
+                body.classList.add('light-theme');
+            }
+            localStorage.setItem('theme', theme);
+            if (typeof M !== 'undefined') {
+                M.updateTextFields(); // Reinitialize input labels
+            }
+            applyThemeToDrawer(theme); // Apply theme to drawer
+        });
     }
 
     // Function to apply theme to drawer
@@ -130,8 +132,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to handle unauthorized responses
     function handleUnauthorizedResponse(response) {
         if (response.status === 401) {
-            var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
-            loginModal.open();
+            requestAnimationFrame(() => {
+                var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
+                loginModal.open();
+            });
             return true;
         }
         return false;
@@ -393,22 +397,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                // Populate the delete confirmation modal with the names of the items to be deleted
-                var deleteItemsList = document.getElementById('deleteItemsList');
-                deleteItemsList.innerHTML = '';
-                var checkedItems = document.querySelectorAll('.item-checkbox:checked');
-                checkedItems.forEach(function(checkbox) {
-                    var li = document.createElement('li');
-                    li.textContent = checkbox.value;
-                    deleteItemsList.appendChild(li);
+                checkLoginAndPerformAction(function() {
+                    // Populate the delete confirmation modal with the names of the items to be deleted
+                    var deleteItemsList = document.getElementById('deleteItemsList');
+                    deleteItemsList.innerHTML = '';
+                    var checkedItems = document.querySelectorAll('.item-checkbox:checked');
+                    checkedItems.forEach(function(checkbox) {
+                        var li = document.createElement('li');
+                        li.textContent = checkbox.value;
+                        deleteItemsList.appendChild(li);
+                    });
+
+                    // Set the current path in the hidden input field
+                    var deleteCurrentPath = document.getElementById('deleteCurrentPath');
+                    deleteCurrentPath.value = document.querySelector('input[name="currentPath"]').value;
+
+                    var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+                    modal.open();
                 });
-
-                // Set the current path in the hidden input field
-                var deleteCurrentPath = document.getElementById('deleteCurrentPath');
-                deleteCurrentPath.value = document.querySelector('input[name="currentPath"]').value;
-
-                var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
-                modal.open();
             });
         }
 
@@ -679,30 +685,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to open drawer
     function openDrawer() {
-        var drawer = document.getElementById('fileMetadataDrawer');
-        var backdrop = document.createElement('div');
-        backdrop.className = 'drawer-backdrop open';
-        backdrop.style.zIndex = '999'; // Ensure backdrop is behind the drawer
-        backdrop.addEventListener('click', function() {
-            if (editMode) {
-                var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
-                modal.open();
-            } else {
-                closeDrawer();
-            }
-        });
-        document.body.appendChild(backdrop);
-        drawer.classList.add('open');
-        drawer.style.zIndex = '1000'; // Ensure drawer is in front of the backdrop
+        requestAnimationFrame(() => {
+            var drawer = document.getElementById('fileMetadataDrawer');
+            var backdrop = document.createElement('div');
+            backdrop.className = 'drawer-backdrop open';
+            backdrop.style.zIndex = '999'; // Ensure backdrop is behind the drawer
+            backdrop.addEventListener('click', function() {
+                if (editMode) {
+                    var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
+                    modal.open();
+                } else {
+                    closeDrawer();
+                }
+            });
+            document.body.appendChild(backdrop);
+            drawer.classList.add('open');
+            drawer.style.zIndex = '1000'; // Ensure drawer is in front of the backdrop
 
-        // Reset edit mode switch
-        var editModeSwitch = document.getElementById('editModeSwitch');
-        if (editModeSwitch.checked) {
-            editModeSwitch.checked = false;
-            toggleEditMode();
-        }
-        // Correctly populate RDS Number
-        document.getElementById('rdsNumber').value = originalMetadata['RDS RDS'] || '';
+            // Reset edit mode switch
+            var editModeSwitch = document.getElementById('editModeSwitch');
+            if (editModeSwitch.checked) {
+                editModeSwitch.checked = false;
+                toggleEditMode();
+            }
+            // Correctly populate RDS Number
+            document.getElementById('rdsNumber').value = originalMetadata['RDS RDS'] || '';
+        });
     }
 
     // Function to close drawer
@@ -1088,9 +1096,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to refresh metadata
     function refreshMetadata(filePath) {
-        fetch('/recalculate-hashes?path=' + encodeURIComponent(filePath))
-            .then(response => response.json())
-            .then(hashes => {
+        if (window.Worker) {
+            const worker = new Worker('/static/js/metadataWorker.js');
+            worker.postMessage({ filePath });
+
+            worker.onmessage = function(event) {
+                const { hashes, metadata } = event.data;
                 // Update metadata fields with new hashes
                 document.getElementById('rdsCRC32').value = hashes['CRC32'];
                 document.getElementById('rdsSHA1').value = hashes['SHA1'];
@@ -1112,11 +1123,44 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('Error fetching metadata:', error);
                         M.toast({ html: 'Error refreshing metadata' });
                     });
-            })
-            .catch(error => {
-                console.error('Error recalculating hashes:', error);
+            };
+
+            worker.onerror = function(error) {
+                console.error('Error in metadata worker:', error);
                 M.toast({ html: 'Error refreshing metadata' });
-            });
+            };
+        } else {
+            // Fallback if Web Workers are not supported
+            fetch('/recalculate-hashes?path=' + encodeURIComponent(filePath))
+                .then(response => response.json())
+                .then(hashes => {
+                    // Update metadata fields with new hashes
+                    document.getElementById('rdsCRC32').value = hashes['CRC32'];
+                    document.getElementById('rdsSHA1').value = hashes['SHA1'];
+                    document.getElementById('rdsSHA256').value = hashes['SHA256'];
+                    document.getElementById('rdsCRC64').value = hashes['CRC64'].toUpperCase();
+                    document.getElementById('rdsBLAKE2sp').value = hashes['BLAKE2sp'];
+
+                    // Fetch updated metadata from README.md
+                    fetch('/file-metadata?path=' + encodeURIComponent(filePath))
+                        .then(response => response.json())
+                        .then(metadata => {
+                            document.getElementById('rdsNumber').value = metadata['RDS RDS'] || '';
+                            M.toast({ html: 'Metadata refreshed successfully' });
+
+                            // Update the displayed metadata content
+                            updateMetadataContent(metadata, hashes);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching metadata:', error);
+                            M.toast({ html: 'Error refreshing metadata' });
+                        });
+                })
+                .catch(error => {
+                    console.error('Error recalculating hashes:', error);
+                    M.toast({ html: 'Error refreshing metadata' });
+                });
+        }
     }
 
     // Function to update metadata content
