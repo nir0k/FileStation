@@ -569,3 +569,12 @@ func (fs *FileService) ReadMetadata(metaFilePath string) (map[string]string, err
 
     return metadata, nil
 }
+
+func (s *FileService) ReadReadmeContent(path string) (string, error) {
+	readmePath := filepath.Join(path, "README.md")
+	content, err := os.ReadFile(readmePath)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}

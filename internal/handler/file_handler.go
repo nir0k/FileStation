@@ -105,6 +105,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 
 		// Process README.md
 		readmeHTML := h.getReadmeHTML(fullPath)
+		readmeContent, _ := h.fileService.ReadReadmeContent(fullPath)
 
 		// Calculate ParentDir
 		parentDir := "/"
@@ -157,6 +158,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			ReadmeHTML template.HTML
 			Version    string
 			RDSStatuses map[string]string
+			ReadmeContent string
 		}{
 			Title:      pageTitle,
 			Path:       reqPath,
@@ -169,6 +171,7 @@ func (h *FileHandler) ServeFiles(w http.ResponseWriter, r *http.Request) {
 			ReadmeHTML: readmeHTML,
 			Version:    h.version,
 			RDSStatuses: rdsStatuses,
+			ReadmeContent: readmeContent,
 		}
 
 		h.renderTemplate(w, "index.html", data)
@@ -701,5 +704,56 @@ func (h *FileHandler) SaveMetadataHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	logger.Infof("User %s updated metadata for file: %s", username, filePath)
+	w.WriteHeader(http.StatusOK)
+}
+
+// PreviewMarkdownHandler обрабатывает запросы на предварительный просмотр Markdown.
+func (h *FileHandler) PreviewMarkdownHandler(w http.ResponseWriter, r *http.Request) {
+	var requestData struct {
+		Content string `json:"content"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&requestData)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var buf strings.Builder
+	err = goldmark.Convert([]byte(requestData.Content), &buf)
+	if err != nil {
+		http.Error(w, "Error converting markdown", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(buf.String()))
+}
+
+// SaveReadmeHandler обрабатывает запросы на сохранение README.md.
+func (h *FileHandler) SaveReadmeHandler(w http.ResponseWriter, r *http.Request) {
+	var requestData struct {
+		Content string `json:"content"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&requestData)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	currentPath := r.URL.Query().Get("path")
+	if currentPath == "" {
+		http.Error(w, "Path is required", http.StatusBadRequest)
+		return
+	}
+
+	fullPath := h.fileService.GetFullPath(filepath.Join(currentPath, "README.md"))
+	err = h.fileService.SaveFile(fullPath, strings.NewReader(requestData.Content))
+	if err != nil {
+		http.Error(w, "Error saving README.md", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
