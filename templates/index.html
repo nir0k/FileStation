@@ -221,11 +221,42 @@
     </div>
 
     <!-- Readme Content -->
-    {{ if .ReadmeHTML }}
-    <div class="readme-content" style="margin-top: 40px;">
-        {{ .ReadmeHTML }}
+    <div style="margin-top: 40px;">
+        {{ if .ReadmeHTML }}
+            {{ if .IsLoggedIn }}
+                <button class="btn blue" id="editReadmeButton">Edit README</button>
+            {{ end }}
+            <div class="readme-content">
+                {{ .ReadmeHTML }}
+            </div>
+        {{ else }}
+            {{ if .IsLoggedIn }}
+                <button class="btn blue" id="createReadmeButton">Create README</button>
+            {{ end }}
+        {{ end }}
     </div>
-    {{ end }}
+
+    <!-- Edit README Modal -->
+    <div id="editReadmeModal" class="modal">
+        <div class="modal-content" style="overflow-y: auto; max-height: calc(100vh - 150px); resize: both;">
+            <h5>Edit README.md</h5>
+            <button id="toggleFullscreenButton" class="btn-floating btn-small waves-effect waves-light blue" style="position: absolute; top: 10px; right: 10px;">
+                <i class="material-icons">fullscreen</i>
+            </button>
+            <div id="editMode">
+                <textarea id="readmeEditor" class="materialize-textarea">{{ .ReadmeContent }}</textarea>
+            </div>
+            <div id="previewMode" style="display: none;">
+                <div id="readmePreview"></div>
+            </div>
+        </div>
+        <div class="modal-footer" style="position: sticky; bottom: 0; background: white;">
+            <button class="btn blue" id="previewReadmeButton" style="position: absolute; left: 20px;">Preview</button>
+            <button class="btn blue" id="editReadmeButtonFromPreview" style="display: none; position: absolute; left: 20px;">Edit</button>
+            <button class="modal-close btn red" id="cancelReadmeButton">Cancel</button>
+            <button class="btn blue" id="saveReadmeButton">Save</button>
+        </div>
+    </div>
 
     <!-- Upload Modal -->
     <div id="uploadModal" class="modal">
@@ -262,7 +293,7 @@
             </form>
         </div>
         <div class="modal-footer">
-            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <a href="#!" class="modal-close btn red">Cancel</a>
         </div>
     </div>
 
@@ -280,7 +311,7 @@
             </form>
         </div>
         <div class="modal-footer">
-            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <a href="#!" class="modal-close btn red">Cancel</a>
         </div>
     </div>
 
@@ -298,7 +329,7 @@
             </form>
         </div>
         <div class="modal-footer">
-            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <a href="#!" class="modal-close btn red">Cancel</a>
         </div>
     </div>
 
@@ -332,7 +363,7 @@
             <p>Select the destination folder to move the selected items.</p>
         </div>
         <div class="modal-footer">
-            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <a href="#!" class="modal-close btn red">Cancel</a>
         </div>
     </div>        
 
@@ -347,13 +378,12 @@
             <input type="hidden" id="deleteCurrentPath" name="currentPath" value="{{.Path}}">
         </div>
         <div class="modal-footer">
-            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+            <a href="#!" class="modal-close btn red">Cancel</a>
             <button type="button" class="btn red" id="confirmDeleteButton">Delete</button>
         </div>
     </div>
 
 </div>
-
 <!-- Подключение библиотеки clipboard.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
 {{ end }}

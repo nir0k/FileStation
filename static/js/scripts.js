@@ -6,18 +6,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to set theme
     function setTheme(theme) {
-        if (theme === 'dark') {
-            body.classList.remove('light-theme');
-            body.classList.add('dark-theme');
-        } else {
-            body.classList.remove('dark-theme');
-            body.classList.add('light-theme');
-        }
-        localStorage.setItem('theme', theme);
-        if (typeof M !== 'undefined') {
-            M.updateTextFields(); // Reinitialize input labels
-        }
-        applyThemeToDrawer(theme); // Apply theme to drawer
+        requestAnimationFrame(() => {
+            if (theme === 'dark') {
+                body.classList.remove('light-theme');
+                body.classList.add('dark-theme');
+            } else {
+                body.classList.remove('dark-theme');
+                body.classList.add('light-theme');
+            }
+            localStorage.setItem('theme', theme);
+            if (typeof M !== 'undefined') {
+                M.updateTextFields(); // Reinitialize input labels
+            }
+            applyThemeToDrawer(theme); // Apply theme to drawer
+        });
     }
 
     // Function to apply theme to drawer
@@ -130,8 +132,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to handle unauthorized responses
     function handleUnauthorizedResponse(response) {
         if (response.status === 401) {
-            var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
-            loginModal.open();
+            requestAnimationFrame(() => {
+                var loginModal = M.Modal.getInstance(document.getElementById('loginModal'));
+                loginModal.open();
+            });
             return true;
         }
         return false;
@@ -393,22 +397,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                // Populate the delete confirmation modal with the names of the items to be deleted
-                var deleteItemsList = document.getElementById('deleteItemsList');
-                deleteItemsList.innerHTML = '';
-                var checkedItems = document.querySelectorAll('.item-checkbox:checked');
-                checkedItems.forEach(function(checkbox) {
-                    var li = document.createElement('li');
-                    li.textContent = checkbox.value;
-                    deleteItemsList.appendChild(li);
+                checkLoginAndPerformAction(function() {
+                    // Populate the delete confirmation modal with the names of the items to be deleted
+                    var deleteItemsList = document.getElementById('deleteItemsList');
+                    deleteItemsList.innerHTML = '';
+                    var checkedItems = document.querySelectorAll('.item-checkbox:checked');
+                    checkedItems.forEach(function(checkbox) {
+                        var li = document.createElement('li');
+                        li.textContent = checkbox.value;
+                        deleteItemsList.appendChild(li);
+                    });
+
+                    // Set the current path in the hidden input field
+                    var deleteCurrentPath = document.getElementById('deleteCurrentPath');
+                    deleteCurrentPath.value = document.querySelector('input[name="currentPath"]').value;
+
+                    var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+                    modal.open();
                 });
-
-                // Set the current path in the hidden input field
-                var deleteCurrentPath = document.getElementById('deleteCurrentPath');
-                deleteCurrentPath.value = document.querySelector('input[name="currentPath"]').value;
-
-                var modal = M.Modal.getInstance(document.getElementById('deleteConfirmModal'));
-                modal.open();
             });
         }
 
@@ -679,30 +685,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to open drawer
     function openDrawer() {
-        var drawer = document.getElementById('fileMetadataDrawer');
-        var backdrop = document.createElement('div');
-        backdrop.className = 'drawer-backdrop open';
-        backdrop.style.zIndex = '999'; // Ensure backdrop is behind the drawer
-        backdrop.addEventListener('click', function() {
-            if (editMode) {
-                var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
-                modal.open();
-            } else {
-                closeDrawer();
-            }
-        });
-        document.body.appendChild(backdrop);
-        drawer.classList.add('open');
-        drawer.style.zIndex = '1000'; // Ensure drawer is in front of the backdrop
+        requestAnimationFrame(() => {
+            var drawer = document.getElementById('fileMetadataDrawer');
+            var backdrop = document.createElement('div');
+            backdrop.className = 'drawer-backdrop open';
+            backdrop.style.zIndex = '999'; // Ensure backdrop is behind the drawer
+            backdrop.addEventListener('click', function() {
+                if (editMode) {
+                    var modal = M.Modal.getInstance(document.getElementById('confirmCloseDrawerModal'));
+                    modal.open();
+                } else {
+                    closeDrawer();
+                }
+            });
+            document.body.appendChild(backdrop);
+            drawer.classList.add('open');
+            drawer.style.zIndex = '1000'; // Ensure drawer is in front of the backdrop
 
-        // Reset edit mode switch
-        var editModeSwitch = document.getElementById('editModeSwitch');
-        if (editModeSwitch.checked) {
-            editModeSwitch.checked = false;
-            toggleEditMode();
-        }
-        // Correctly populate RDS Number
-        document.getElementById('rdsNumber').value = originalMetadata['RDS RDS'] || '';
+            // Reset edit mode switch
+            var editModeSwitch = document.getElementById('editModeSwitch');
+            if (editModeSwitch.checked) {
+                editModeSwitch.checked = false;
+                toggleEditMode();
+            }
+            // Correctly populate RDS Number
+            document.getElementById('rdsNumber').value = originalMetadata['RDS RDS'] || '';
+        });
     }
 
     // Function to close drawer
@@ -1088,9 +1096,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to refresh metadata
     function refreshMetadata(filePath) {
-        fetch('/recalculate-hashes?path=' + encodeURIComponent(filePath))
-            .then(response => response.json())
-            .then(hashes => {
+        if (window.Worker) {
+            const worker = new Worker('/static/js/metadataWorker.js');
+            worker.postMessage({ filePath });
+
+            worker.onmessage = function(event) {
+                const { hashes, metadata } = event.data;
                 // Update metadata fields with new hashes
                 document.getElementById('rdsCRC32').value = hashes['CRC32'];
                 document.getElementById('rdsSHA1').value = hashes['SHA1'];
@@ -1112,11 +1123,44 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('Error fetching metadata:', error);
                         M.toast({ html: 'Error refreshing metadata' });
                     });
-            })
-            .catch(error => {
-                console.error('Error recalculating hashes:', error);
+            };
+
+            worker.onerror = function(error) {
+                console.error('Error in metadata worker:', error);
                 M.toast({ html: 'Error refreshing metadata' });
-            });
+            };
+        } else {
+            // Fallback if Web Workers are not supported
+            fetch('/recalculate-hashes?path=' + encodeURIComponent(filePath))
+                .then(response => response.json())
+                .then(hashes => {
+                    // Update metadata fields with new hashes
+                    document.getElementById('rdsCRC32').value = hashes['CRC32'];
+                    document.getElementById('rdsSHA1').value = hashes['SHA1'];
+                    document.getElementById('rdsSHA256').value = hashes['SHA256'];
+                    document.getElementById('rdsCRC64').value = hashes['CRC64'].toUpperCase();
+                    document.getElementById('rdsBLAKE2sp').value = hashes['BLAKE2sp'];
+
+                    // Fetch updated metadata from README.md
+                    fetch('/file-metadata?path=' + encodeURIComponent(filePath))
+                        .then(response => response.json())
+                        .then(metadata => {
+                            document.getElementById('rdsNumber').value = metadata['RDS RDS'] || '';
+                            M.toast({ html: 'Metadata refreshed successfully' });
+
+                            // Update the displayed metadata content
+                            updateMetadataContent(metadata, hashes);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching metadata:', error);
+                            M.toast({ html: 'Error refreshing metadata' });
+                        });
+                })
+                .catch(error => {
+                    console.error('Error recalculating hashes:', error);
+                    M.toast({ html: 'Error refreshing metadata' });
+                });
+        }
     }
 
     // Function to update metadata content
@@ -1339,5 +1383,126 @@ document.addEventListener('DOMContentLoaded', function() {
                 loginError.style.display = 'block';
             });
         });
+    }
+
+    // Scripts moved from index.html
+    var editReadmeButton = document.getElementById('editReadmeButton');
+    var editReadmeModal = document.getElementById('editReadmeModal');
+    var previewReadmeButton = document.getElementById('previewReadmeButton');
+    var editReadmeButtonFromPreview = document.getElementById('editReadmeButtonFromPreview');
+    var readmePreview = document.getElementById('readmePreview');
+    var saveReadmeButton = document.getElementById('saveReadmeButton');
+    var cancelReadmeButton = document.getElementById('cancelReadmeButton');
+    var readmeEditor = document.getElementById('readmeEditor');
+    var editMode = document.getElementById('editMode');
+    var previewMode = document.getElementById('previewMode');
+
+    var readmeModalInstance = M.Modal.getInstance(editReadmeModal);
+
+    if (editReadmeButton) {
+        editReadmeButton.addEventListener('click', function() {
+            checkLoginAndPerformAction(function() {
+                // Reset to edit mode when opening the modal
+                editMode.style.display = 'block';
+                previewMode.style.display = 'none';
+                readmeModalInstance.open();
+            });
+        });
+    }
+
+    if (previewReadmeButton) {
+        previewReadmeButton.addEventListener('click', function() {
+            var markdownContent = readmeEditor.value;
+            fetch('/preview-markdown', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: markdownContent })
+            })
+            .then(response => response.text())
+            .then(html => {
+                readmePreview.innerHTML = html;
+                // Switch to preview mode
+                editMode.style.display = 'none';
+                previewMode.style.display = 'block';
+            });
+        });
+    }
+
+    if (editReadmeButtonFromPreview) {
+        editReadmeButtonFromPreview.addEventListener('click', function() {
+            // Switch back to edit mode
+            previewMode.style.display = 'none';
+            editMode.style.display = 'block';
+        });
+    }
+
+    if (saveReadmeButton) {
+        saveReadmeButton.addEventListener('click', function() {
+            var markdownContent = readmeEditor.value;
+            var currentPath = document.querySelector('input[name="currentPath"]').value;
+            fetch('/save-readme?path=' + encodeURIComponent(currentPath), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: markdownContent })
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error saving README.md');
+                }
+            });
+        });
+    }
+
+    if (cancelReadmeButton) {
+        cancelReadmeButton.addEventListener('click', function() {
+            readmeModalInstance.close();
+        });
+    }
+
+    var createReadmeButton = document.getElementById('createReadmeButton');
+    if (createReadmeButton) {
+        createReadmeButton.addEventListener('click', function() {
+            checkLoginAndPerformAction(function() {
+                // Reset to edit mode when opening the modal
+                document.getElementById('editMode').style.display = 'block';
+                document.getElementById('previewMode').style.display = 'none';
+                var readmeModalInstance = M.Modal.getInstance(document.getElementById('editReadmeModal'));
+                readmeModalInstance.open();
+            });
+        });
+    }
+});
+
+document.getElementById('previewReadmeButton').addEventListener('click', function() {
+    document.getElementById('editMode').style.display = 'none';
+    document.getElementById('previewMode').style.display = 'block';
+    document.getElementById('previewReadmeButton').style.display = 'none';
+    document.getElementById('editReadmeButtonFromPreview').style.display = 'inline-block';
+});
+
+document.getElementById('editReadmeButtonFromPreview').addEventListener('click', function() {
+    document.getElementById('editMode').style.display = 'block';
+    document.getElementById('previewMode').style.display = 'none';
+    document.getElementById('previewReadmeButton').style.display = 'inline-block';
+    document.getElementById('editReadmeButtonFromPreview').style.display = 'none';
+});
+
+document.getElementById('toggleFullscreenButton').addEventListener('click', function() {
+    const modal = document.getElementById('editReadmeModal');
+    const modalContent = modal.querySelector('.modal-content');
+    if (modal.classList.contains('fullscreen')) {
+        modal.classList.remove('fullscreen');
+        modalContent.classList.remove('fullscreen');
+        this.innerHTML = '<i class="material-icons">fullscreen</i>';
+    } else {
+        modal.classList.add('fullscreen');
+        modalContent.classList.add('fullscreen');
+        this.innerHTML = '<i class="material-icons">fullscreen_exit</i>';
     }
 });
